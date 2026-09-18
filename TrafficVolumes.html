@@ -644,7 +644,10 @@ function readNetwork(fileName, text) {
  * State
  * ------------------------------------------------------------------ */
 
-var RAMP = ['#3fb27f', '#8fd14f', '#f2c14e', '#ef8a3c', '#e0503f'];
+// One colour for a direction that has a number, one for a direction that does
+// not. The number itself is written next to the line, so colouring by size on
+// top of that only makes the picture busier.
+var FILLED_COLOUR = '#e8833a';
 var EMPTY_COLOUR = '#8b96a8';
 // One colour per direction of the selected link, matched by a dot next to its
 // input, so it is never in doubt which line a number belongs to. Both are well
@@ -793,13 +796,12 @@ function zoomBy(factor, ax, ay) {
 function widthOf(link) {
   var v = values[link.key];
   if (v === undefined) return 3;
-  return 2.5 + 15 * Math.sqrt(Math.max(0, v) / maxValue);
+  // Kept modest: wide bands crowd each other and cover the numbers.
+  return 2 + 8 * Math.sqrt(Math.max(0, v) / maxValue);
 }
 function colourOf(link) {
   var v = values[link.key];
-  if (v === undefined) return EMPTY_COLOUR;
-  var ratio = Math.max(0, Math.min(1, v / maxValue));
-  return RAMP[Math.min(RAMP.length - 1, Math.floor(ratio * RAMP.length))];
+  return v === undefined ? EMPTY_COLOUR : FILLED_COLOUR;
 }
 
 /** Project a direction and push it to the right hand side of travel. */
@@ -887,7 +889,7 @@ function drawNetwork() {
       var focused = link.key === focusedKey;
       // The direction being typed into gets the thick ring; the other one of
       // the pair keeps a thinner ring in its own colour.
-      stroke(link.screen, DIR_COLOURS[i], link.width + (focused ? 9 : 5), focused ? 1 : 0.55);
+      stroke(link.screen, DIR_COLOURS[i], link.width + (focused ? 7 : 4), focused ? 1 : 0.55);
       stroke(link.screen, '#0c111b', link.width + 2, focused ? 1 : 0.8);
       stroke(link.screen, colourOf(link), link.width);
       arrow(link);
@@ -1257,10 +1259,7 @@ function exportPng(withoutBasemap) {
     }
   }
   swatch(EMPTY_COLOUR, 'nevyplněno');
-  RAMP.forEach(function (colour) { swatch(colour, null); });
-  x += 4;
-  c.fillStyle = '#94a3b8';
-  c.fillText('nízká → vysoká intenzita', x, y);
+  swatch(FILLED_COLOUR, 'zadaná intenzita');
   c.textAlign = 'right';
   c.fillText((tilesInPicture ? TILE_ATTRIB_TEXT + ' · ' : '')
     + new Date().toLocaleDateString('cs-CZ'), view.w - 16, y);
@@ -1353,10 +1352,8 @@ function loadFile(file) {
         + (oneWay ? ' · ' + oneWay + ' jednosměrných' : '')
         + (parsed.skipped ? ' · ' + parsed.skipped + ' řádků bez geometrie' : '');
       $('legend').innerHTML = '<span class="swatch" style="background:' + EMPTY_COLOUR
-        + '"></span>nevyplněno &nbsp;'
-        + RAMP.map(function (c) {
-            return '<span class="swatch" style="background:' + c + '"></span>';
-          }).join('') + ' nízká → vysoká';
+        + '"></span>nevyplněno &nbsp;&nbsp;<span class="swatch" style="background:'
+        + FILLED_COLOUR + '"></span>zadaná intenzita';
       updateProgress();
       resize();
       fitAll();

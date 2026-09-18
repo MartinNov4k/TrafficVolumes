@@ -121,7 +121,8 @@ Neznámý systém se zobrazí v rovinném plátně — zadávání funguje stejn
 ## Mapa
 
 Každý směr je samostatná čára odsazená **vpravo ve směru jízdy**, se šipkou.
-Šířka a barva odpovídají zadané intenzitě, nevyplněné směry jsou šedé.
+Vyplněné směry mají jednu barvu, nevyplněné jsou šedé; velikost intenzity
+ukazuje šířka čáry a hlavně číslo vypsané vedle ní.
 Vybraný link má oba směry obtažené barvou podle panelu, editovaný silněji.
 Táhnutím se posouvá, kolečkem přibližuje, <kbd>Esc</kbd> zruší výběr.
 
