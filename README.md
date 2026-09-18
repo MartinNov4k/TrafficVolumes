@@ -32,6 +32,12 @@ připojení k internetu; když se dlaždice nenačtou, aplikace to napíše a pr
 se dál nad tmavým pozadím. U sítí v neznámém souřadnicovém systému se přepínač
 nenabízí, protože dlaždice by neseděly.
 
+Dlaždice se načítají stejně jako v Leafletu nebo Folium, takže fungují všude,
+kde funguje ta. Aplikace se jen na začátku jednou zeptá, zda server posílá
+hlavičky CORS: když ano, dostane se podkladová mapa i do uloženého obrázku;
+když ne, zobrazí se v aplikaci, ale obrázek se uloží bez ní (prohlížeč jinak
+odmítne plátno přečíst) a aplikace to napíše.
+
 Pokud je ve vaší síti OpenStreetMap nedostupná, přepište v souboru
 `TrafficVolumes.html` konstantu `TILE_URL` na adresu svého vlastního
 dlaždicového serveru ve tvaru `.../{z}/{x}/{y}.png`. Je hned na začátku
@@ -115,19 +121,22 @@ Vybraný link má oba směry obtažené barvou podle panelu, editovaný silněji
 Táhnutím se posouvá, kolečkem přibližuje, <kbd>Esc</kbd> zruší výběr.
 
 Obrázek uložený tlačítkem obsahuje i podkladovou mapu, pokud je zapnutá
-a pokud ji server dlaždic poslal s hlavičkami CORS. Bez nich prohlížeč
-nedovolí obrázek z plátna vytvořit, takže se uloží bez podkladu — a napíše
-to.
+a pokud to server dlaždic dovolí (viz výše).
 
 ## Test
 
 ```bash
 pip install playwright && playwright install chromium
-python3 tests/e2e.py
+python3 tests/e2e.py      # 58 kontrol celé aplikace
+python3 tests/tiles.py    # podkladová mapa proti lokálnímu serveru
 ```
 
-Projde aplikaci v prohlížeči jako uživatel: načtení sítě, zadání obou směrů,
-validace, jednosměrné linky, obsah `.att` i PNG, obnovení po zavření.
+`e2e.py` projde aplikaci v prohlížeči jako uživatel: načtení sítě ve všech
+podporovaných podobách, zadání obou směrů, zvýraznění editovaného směru,
+validaci čísel, jednosměrné linky, obsah `.att` i PNG.
+
+`tiles.py` si spustí vlastní dlaždicový server, takže nepotřebuje internet,
+a ověří chování s hlavičkami CORS, bez nich i při nedostupném serveru.
 
 ## Licence
 

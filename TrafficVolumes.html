@@ -653,8 +653,9 @@ var focusedKey = null;   // the direction whose input has the cursor
 var maxValue = 1;
 var basemapOn = false;
 var tiles = {}, tileOrder = [];
-var tilesLoaded = 0;     // how many tiles actually arrived
-var tilesTainted = false; // true once a tile had to be loaded without CORS
+var tilesLoaded = 0;      // how many tiles actually arrived
+var tileMode = null;      // null until probed, then 'cors' or 'plain'
+var tilesTainted = false; // true when tiles are loaded without CORS
 
 var $ = function (id) { return document.getElementById(id); };
 
@@ -882,6 +883,34 @@ function drawNetwork() {
   });
 }
 
+function tileUrl(z, x, y) {
+  return TILE_URL.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+}
+
+/**
+ * Work out once how this tile server has to be talked to.
+ *
+ * A crossOrigin load keeps the canvas clean, which is what lets the background
+ * go into the exported image. Many tile servers send no CORS headers, and the
+ * browser then refuses the image outright - that is the "blocked" message.
+ * Leaflet, and so Folium, sidesteps the whole question by loading tiles as
+ * ordinary images, which always works but taints the canvas. So: ask once with
+ * the small world tile, and use the answer for every tile afterwards, instead
+ * of letting each one fail first.
+ */
+function probeTileMode(done) {
+  if (tileMode) { done(); return; }
+  var img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = function () { tileMode = 'cors'; done(); };
+  img.onerror = function () {
+    tileMode = 'plain';
+    tilesTainted = true;
+    done();
+  };
+  img.src = tileUrl(0, 0, 0);
+}
+
 /** One XYZ tile, fetched once and redrawn from cache afterwards. */
 function tile(z, x, y) {
   var id = z + '/' + x + '/' + y;
@@ -889,31 +918,18 @@ function tile(z, x, y) {
   if (tileOrder.length > 400) {
     tileOrder.splice(0, 100).forEach(function (k) { delete tiles[k]; });
   }
-  var url = TILE_URL.replace('{z}', z).replace('{x}', x).replace('{y}', y);
-
-  // A CORS load keeps the canvas clean, so the background can go into the
-  // exported image. Plenty of tile servers send no CORS headers though, and the
-  // browser then refuses the image outright, which is what "blocked" means.
-  // Retry such a tile as an ordinary image: it shows on screen, at the price of
-  // tainting the canvas, so the PNG is then written without the background.
   var img = new Image();
-  img.crossOrigin = 'anonymous';
+  if (tileMode === 'cors') img.crossOrigin = 'anonymous';
   img.onload = function () { tilesLoaded++; draw(); };
-  img.onerror = function () {
-    tilesTainted = true;
-    var plain = new Image();
-    plain.onload = function () { tilesLoaded++; draw(); };
-    plain.onerror = function () { plain.failed = true; };
-    plain.src = url;
-    tiles[id] = plain;
-  };
-  img.src = url;
+  img.onerror = function () { img.failed = true; };
+  img.src = tileUrl(z, x, y);
   tiles[id] = img;
   tileOrder.push(id);
   return img;
 }
 
 function drawTiles() {
+  if (!tileMode) return;          // still asking the server how to load tiles
   var z = Math.round(Math.log(2 * MERC_HALF * view.scale / 256) / Math.LN2);
   z = Math.max(0, Math.min(19, z));
   var n = Math.pow(2, z);
@@ -1353,12 +1369,15 @@ $('basemap').addEventListener('change', function () {
   if (!basemapOn) return;
   var before = tilesLoaded;
   toast('Podkladová mapa se načítá z internetu.');
-  setTimeout(function () {
-    if (basemapOn && tilesLoaded === before) {
-      toast('Podkladovou mapu se nepodařilo načíst — server dlaždic není '
-        + 'ze sítě dostupný. Zadávání i exporty fungují dál.', true);
-    }
-  }, 6000);
+  probeTileMode(function () {
+    draw();
+    setTimeout(function () {
+      if (basemapOn && tilesLoaded === before) {
+        toast('Podkladovou mapu se nepodařilo načíst — server dlaždic není '
+          + 'ze sítě dostupný. Zadávání i exporty fungují dál.', true);
+      }
+    }, 6000);
+  });
 });
 $('zin').addEventListener('click', function () { zoomBy(1.6); });
 $('zout').addEventListener('click', function () { zoomBy(1 / 1.6); });
