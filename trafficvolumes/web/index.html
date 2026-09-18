@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TrafficVolumes — zadávání intenzit</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>🚦</text></svg>">
+</head>
+<body>
+<div id="app">
+
+  <aside id="sidebar">
+    <header>
+      <h1 id="project-name">TrafficVolumes</h1>
+      <p id="project-meta" class="muted"></p>
+    </header>
+
+    <section class="progress">
+      <div class="bar"><div id="progress-fill"></div></div>
+      <p id="progress-text" class="muted"></p>
+    </section>
+
+    <section class="controls">
+      <label class="field">
+        <span>Jméno sčítajícího</span>
+        <input id="surveyor" type="text" placeholder="např. Novák" autocomplete="off">
+      </label>
+      <label class="field">
+        <span>Hledat (číslo linku, uzel, název)</span>
+        <input id="search" type="search" placeholder="např. 1023 nebo Husova" autocomplete="off">
+      </label>
+      <div class="toggles">
+        <label><input type="checkbox" id="filter-empty"> jen nevyplněné</label>
+        <label><input type="checkbox" id="filter-flagged"> jen označené</label>
+        <label><input type="checkbox" id="show-labels" checked> popisky hodnot</label>
+        <label><input type="checkbox" id="show-bands" checked> šířka dle intenzity</label>
+        <label><input type="checkbox" id="show-basemap"> podkladová mapa</label>
+      </div>
+    </section>
+
+    <section id="detail" class="detail hidden">
+      <h2 id="detail-title">Link</h2>
+      <p id="detail-sub" class="muted"></p>
+      <form id="value-form" autocomplete="off">
+        <div id="value-inputs"></div>
+        <label class="field">
+          <span>Poznámka</span>
+          <textarea id="note" rows="2" placeholder="volitelně"></textarea>
+        </label>
+        <label class="inline"><input type="checkbox" id="flagged"> označit k prověření</label>
+        <div class="buttons">
+          <button type="submit" class="primary">Uložit <kbd>Enter</kbd></button>
+          <button type="button" id="btn-clear">Vymazat</button>
+        </div>
+        <div class="buttons">
+          <button type="button" id="btn-opposite" title="Přepnout na opačný směr">Opačný směr <kbd>O</kbd></button>
+          <button type="button" id="btn-copy" title="Zkopírovat zadané hodnoty do opačného směru">Kopírovat →opačný</button>
+          <button type="button" id="btn-next" title="Přejít na nejbližší nevyplněný směr">Další nevyplněný <kbd>N</kbd></button>
+        </div>
+      </form>
+      <details id="detail-attrs"><summary>Atributy z Visumu</summary><dl id="attrs-list"></dl></details>
+      <details id="detail-history"><summary>Historie změn</summary><ul id="history-list"></ul></details>
+    </section>
+
+    <section id="placeholder" class="detail muted">
+      <p>Klikněte na směr linku v mapě a zadejte intenzitu.</p>
+      <p>Každý link je vykreslen zvlášť pro každý směr, odsazeně vpravo ve směru jízdy.</p>
+    </section>
+
+    <footer>
+      <div class="buttons">
+        <a id="export-att" class="button primary" href="#">Export .att pro Visum</a>
+      </div>
+      <div class="buttons">
+        <a id="export-csv" class="button" href="#">CSV</a>
+        <a id="export-geojson" class="button" href="#">GeoJSON</a>
+        <a id="export-script" class="button" href="#">Visum skript</a>
+      </div>
+      <p class="muted small" id="legend"></p>
+    </footer>
+  </aside>
+
+  <main id="map-wrap">
+    <canvas id="map"></canvas>
+    <div id="map-tools">
+      <button id="zoom-in" title="Přiblížit">+</button>
+      <button id="zoom-out" title="Oddálit">−</button>
+      <button id="zoom-fit" title="Zobrazit celou síť">⤢</button>
+    </div>
+    <div id="attribution" class="muted small"></div>
+    <div id="toast" class="hidden"></div>
+    <div id="hint" class="muted small">
+      Táhnutím posunete mapu, kolečkem přiblížíte. Kliknutí vybere směr linku.
+    </div>
+  </main>
+
+</div>
+<script src="/map.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

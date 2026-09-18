@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Project files and exports produced while working
+*.tvol
+*.tvol-wal
+*.tvol-shm
+/out/

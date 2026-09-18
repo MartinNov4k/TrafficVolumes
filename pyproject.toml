@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trafficvolumes"
+version = "1.0.0"
+description = "Manual traffic volume entry on a map for PTV Visum links, licence free"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+keywords = ["ptv visum", "traffic", "transport modelling", "traffic counts"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: GIS",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = []
+
+[project.optional-dependencies]
+# Only needed for coordinate systems that are not built in, and for shapefiles.
+crs = ["pyproj>=3.4"]
+shapefile = ["pyshp>=2.3"]
+
+[project.scripts]
+tvol = "trafficvolumes.cli:main"
+trafficvolumes = "trafficvolumes.cli:main"
+
+[tool.setuptools]
+packages = ["trafficvolumes"]
+
+[tool.setuptools.package-data]
+trafficvolumes = ["web/*"]
