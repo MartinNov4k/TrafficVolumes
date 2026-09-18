@@ -639,6 +639,8 @@ var EMPTY_COLOUR = '#8b96a8';
 // input, so it is never in doubt which line a number belongs to. Both are well
 // clear of the green-to-red value ramp.
 var DIR_COLOURS = ['#4f9dff', '#c77dff'];
+// Change this to point at another XYZ tile service, for instance one your
+// organisation runs, if OpenStreetMap is not reachable from your network.
 var TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 var TILE_ATTRIB = '© <a href="https://www.openstreetmap.org/copyright" target="_blank"'
   + ' rel="noopener">OpenStreetMap</a> přispěvatelé';
@@ -651,6 +653,8 @@ var focusedKey = null;   // the direction whose input has the cursor
 var maxValue = 1;
 var basemapOn = false;
 var tiles = {}, tileOrder = [];
+var tilesLoaded = 0;     // how many tiles actually arrived
+var tilesTainted = false; // true once a tile had to be loaded without CORS
 
 var $ = function (id) { return document.getElementById(id); };
 
@@ -672,24 +676,18 @@ function pairOf(key) {
     ? { a: link, b: reverse } : { a: reverse, b: link };
 }
 
-function storageKey() {
-  return 'tvol:' + net.name + ':' + net.links.length;
-}
-
-/** Silent safety net: values survive a closed tab, without asking anything. */
-function remember() {
-  try { localStorage.setItem(storageKey(), JSON.stringify(values)); } catch (e) { /* full or blocked */ }
-}
-function recall() {
+/**
+ * Nothing is kept between sessions: the values live only in this page for as
+ * long as it is open, and leave it through the .att and the image. Earlier
+ * builds mirrored them into the browser's storage, so anything left there is
+ * cleared once, otherwise old numbers would turn up out of nowhere.
+ */
+function forgetOldStorage() {
   try {
-    var raw = localStorage.getItem(storageKey());
-    if (!raw) return 0;
-    var saved = JSON.parse(raw), n = 0;
-    Object.keys(saved).forEach(function (k) {
-      if (net.byKey[k]) { values[k] = saved[k]; n++; }
+    Object.keys(localStorage).forEach(function (key) {
+      if (key.indexOf('tvol:') === 0) localStorage.removeItem(key);
     });
-    return n;
-  } catch (e) { return 0; }
+  } catch (e) { /* private window or storage disabled */ }
 }
 
 function recomputeMax() {
@@ -891,12 +889,25 @@ function tile(z, x, y) {
   if (tileOrder.length > 400) {
     tileOrder.splice(0, 100).forEach(function (k) { delete tiles[k]; });
   }
+  var url = TILE_URL.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+
+  // A CORS load keeps the canvas clean, so the background can go into the
+  // exported image. Plenty of tile servers send no CORS headers though, and the
+  // browser then refuses the image outright, which is what "blocked" means.
+  // Retry such a tile as an ordinary image: it shows on screen, at the price of
+  // tainting the canvas, so the PNG is then written without the background.
   var img = new Image();
-  // Without CORS the tile would taint the canvas and break the PNG export.
   img.crossOrigin = 'anonymous';
-  img.onload = draw;
-  img.onerror = function () { img.failed = true; };
-  img.src = TILE_URL.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+  img.onload = function () { tilesLoaded++; draw(); };
+  img.onerror = function () {
+    tilesTainted = true;
+    var plain = new Image();
+    plain.onload = function () { tilesLoaded++; draw(); };
+    plain.onerror = function () { plain.failed = true; };
+    plain.src = url;
+    tiles[id] = plain;
+  };
+  img.src = url;
   tiles[id] = img;
   tileOrder.push(id);
   return img;
@@ -1047,7 +1058,6 @@ function saveSelected() {
     else values[dir.key] = result.value;
   });
   recomputeMax();
-  remember();
   updateProgress();
   draw();
   toast('Uloženo.');
@@ -1059,7 +1069,6 @@ function clearSelected() {
     if (dir) delete values[dir.key];
   });
   recomputeMax();
-  remember();
   updateProgress();
   selectLink(selected.a);
   toast('Vymazáno.');
@@ -1139,7 +1148,7 @@ function exportAtt() {
 function exportPng(withoutBasemap) {
   var attr;
   try { attr = attributeName(); } catch (e) { toast(e.message, true); return; }
-  var tilesInPicture = basemapOn && net.geo && !withoutBasemap;
+  var tilesInPicture = basemapOn && net.geo && !withoutBasemap && !tilesTainted;
   var scale = 2, head = 50, foot = 32;
   var out = document.createElement('canvas');
   out.width = view.w * scale;
@@ -1268,7 +1277,6 @@ function loadFile(file) {
       values = {};
       selected = null;
 
-      var restored = recall();
       recomputeMax();
 
       $('drop').classList.add('hidden');
@@ -1296,7 +1304,6 @@ function loadFile(file) {
       updateProgress();
       resize();
       fitAll();
-      if (restored) toast(restored + ' dříve zadaných hodnot obnoveno.');
     } catch (error) {
       toast(error.message || String(error), true);
     }
@@ -1342,8 +1349,16 @@ $('basemap').addEventListener('change', function () {
   basemapOn = this.checked;
   $('attrib').innerHTML = TILE_ATTRIB;
   $('attrib').classList.toggle('hidden', !basemapOn);
-  if (basemapOn) toast('Podkladová mapa se načítá z internetu.');
   draw();
+  if (!basemapOn) return;
+  var before = tilesLoaded;
+  toast('Podkladová mapa se načítá z internetu.');
+  setTimeout(function () {
+    if (basemapOn && tilesLoaded === before) {
+      toast('Podkladovou mapu se nepodařilo načíst — server dlaždic není '
+        + 'ze sítě dostupný. Zadávání i exporty fungují dál.', true);
+    }
+  }, 6000);
 });
 $('zin').addEventListener('click', function () { zoomBy(1.6); });
 $('zout').addEventListener('click', function () { zoomBy(1 / 1.6); });
@@ -1396,6 +1411,7 @@ document.addEventListener('keydown', function (e) {
 });
 window.addEventListener('resize', function () { resize(); draw(); });
 
+forgetOldStorage();
 resize();
 render();
 </script>

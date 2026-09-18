@@ -28,12 +28,19 @@ Do políčka *Název atributu ve Visumu* zadejte, jak se má sloupec jmenovat
 (výchozí `VOL_MANUAL`).
 
 Přepínač **podkladová mapa** podloží síť mapou z OpenStreetMap. Vyžaduje
-připojení k internetu; bez něj se nic nerozbije, jen zůstane tmavé pozadí.
-U sítí v neznámém souřadnicovém systému se přepínač nenabízí, protože dlaždice
-by neseděly.
+připojení k internetu; když se dlaždice nenačtou, aplikace to napíše a pracuje
+se dál nad tmavým pozadím. U sítí v neznámém souřadnicovém systému se přepínač
+nenabízí, protože dlaždice by neseděly.
 
-Hodnoty se průběžně ukládají do prohlížeče, takže zavřené okno o práci
-nepřipraví — po opětovném načtení stejné sítě se samy vrátí.
+Pokud je ve vaší síti OpenStreetMap nedostupná, přepište v souboru
+`TrafficVolumes.html` konstantu `TILE_URL` na adresu svého vlastního
+dlaždicového serveru ve tvaru `.../{z}/{x}/{y}.png`. Je hned na začátku
+skriptu.
+
+**Zadané hodnoty nikam neodcházejí a nikde nezůstávají.** Drží se jen
+v otevřené stránce, nezapisují se do HTML souboru ani do prohlížeče. Ze
+stránky se dostanou výhradně tlačítky *Uložit .att* a *Uložit obrázek* —
+proto je uložte dřív, než okno zavřete.
 
 ## Načtení do Visumu
 
@@ -107,8 +114,10 @@ Každý směr je samostatná čára odsazená **vpravo ve směru jízdy**, se š
 Vybraný link má oba směry obtažené barvou podle panelu, editovaný silněji.
 Táhnutím se posouvá, kolečkem přibližuje, <kbd>Esc</kbd> zruší výběr.
 
-Obrázek uložený tlačítkem obsahuje i podkladovou mapu, pokud je zapnutá,
-a v patičce její atribuci.
+Obrázek uložený tlačítkem obsahuje i podkladovou mapu, pokud je zapnutá
+a pokud ji server dlaždic poslal s hlavičkami CORS. Bez nich prohlížeč
+nedovolí obrázek z plátna vytvořit, takže se uloží bez podkladu — a napíše
+to.
 
 ## Test
 

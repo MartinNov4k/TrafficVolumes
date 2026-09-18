@@ -118,14 +118,25 @@ with sync_playwright() as pw:
     check("PNG signatura", png[:8]==b"\x89PNG\r\n\x1a\n")
     check("PNG má obsah", len(png)>20000, len(png))
 
-    print("\n== obnovení po zavření ==")
+    print("\n== nic nepřežívá zavření stránky ==")
+    # Values live only in the open page: nothing goes into the HTML file and
+    # nothing stays in the browser, so old numbers cannot reappear later.
+    stored = page.evaluate(
+        "() => { try { return Object.keys(localStorage)"
+        ".filter(function (k) { return k.indexOf('tvol') === 0; }); }"
+        " catch (e) { return ['nedostupne']; } }")
+    check("nic se neukládá do prohlížeče", stored == [], stored)
+
     page2 = ctx.new_page()
-    page2.on("pageerror", lambda e: errs.append("reopen: "+str(e)))
+    page2.on("pageerror", lambda e: errs.append("reopen: " + str(e)))
     page2.goto(APP); page2.wait_for_timeout(300)
     page2.set_input_files("#file", NET)
     page2.wait_for_function("() => !!window.net", timeout=15000); page2.wait_for_timeout(500)
-    restored = page2.evaluate("() => ({n: Object.keys(values).length, prog: document.getElementById('progress').textContent})")
-    check("hodnoty obnoveny z prohlížeče", restored["n"]==2, restored)
+    again = page2.evaluate(
+        "() => ({ n: Object.keys(values).length,"
+        " prog: document.getElementById('progress').textContent })")
+    check("po novém otevření je síť prázdná", again["n"] == 0, again)
+    check("a ukazatel to říká", again["prog"].startswith("0 z"), again["prog"])
     page2.close()
 
     print("\n== export s jedním řádkem na link: oba směry se doplní ==")
