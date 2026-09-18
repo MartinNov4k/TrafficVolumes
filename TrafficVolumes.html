@@ -340,13 +340,34 @@ var ALIASES = {
   xt: ['TONODE\\XCOORD', 'XCOORDTO', 'XTO'],
   yt: ['TONODE\\YCOORD', 'YCOORDTO', 'YTO']
 };
+function normName(name) { return String(name).replace(/[\s_]/g, '').toUpperCase(); }
+
+function findCol(cols, name) {
+  var wanted = normName(name);
+  for (var i = 0; i < cols.length; i++) {
+    if (normName(cols[i]) === wanted) return cols[i];
+  }
+  return null;
+}
+
 function col(cols, role) {
-  var map = {};
-  cols.forEach(function (c) { map[c.replace(/[\s_]/g, '').toUpperCase()] = c; });
   var list = ALIASES[role];
   for (var i = 0; i < list.length; i++) {
-    var hit = map[list[i].replace(/[\s_]/g, '').toUpperCase()];
+    var hit = findCol(cols, list[i]);
     if (hit) return hit;
+  }
+  return null;
+}
+
+// Visum can export a link together with its opposite direction in one row, the
+// reverse attributes carrying a prefix (the ReverseLink relation). Then the
+// second direction is in the file already and needs no guessing.
+var REVERSE_PREFIXES = ['R_', 'REV_', 'REVERSE_', 'REVERSELINK\\'];
+
+function reversePrefix(cols) {
+  for (var i = 0; i < REVERSE_PREFIXES.length; i++) {
+    var p = REVERSE_PREFIXES[i];
+    if (findCol(cols, p + 'FROMNODENO') && findCol(cols, p + 'TONODENO')) return p;
   }
   return null;
 }
@@ -471,6 +492,16 @@ function readNetwork(fileName, text) {
   var cName = col(cols, 'name');
   var cxf = col(cols, 'xf'), cyf = col(cols, 'yf'), cxt = col(cols, 'xt'), cyt = col(cols, 'yt');
 
+  // Opposite direction carried in the same row, if the export has it.
+  var prefix = reversePrefix(cols);
+  var rNo = prefix && findCol(cols, prefix + 'NO');
+  var rFrom = prefix && findCol(cols, prefix + 'FROMNODENO');
+  var rTo = prefix && findCol(cols, prefix + 'TONODENO');
+  // An empty TSysSet is how Visum says a direction is closed to everything,
+  // which is what makes a link one-way.
+  var cTsys = findCol(cols, 'TSYSSET');
+  var rTsys = prefix && findCol(cols, prefix + 'TSYSSET');
+
   var links = [], skipped = 0;
   rows.forEach(function (row) {
     var no = String(row[cNo] || '').trim();
@@ -498,10 +529,25 @@ function readNetwork(fileName, text) {
       }
     }
     if (geom.length < 2) { skipped++; return; }
+    var name = cName ? String(row[cName] || '').trim() : '';
     links.push({
       no: no, from: from, to: to, key: no + '|' + from + '|' + to,
-      name: cName ? String(row[cName] || '').trim() : '', geom: geom
+      name: name, geom: geom,
+      closed: cTsys ? String(row[cTsys] || '').trim() === '' : false
     });
+
+    if (rFrom && rTo) {
+      var rf = String(row[rFrom] || '').trim();
+      var rt = String(row[rTo] || '').trim();
+      var rn = rNo ? String(row[rNo] || '').trim() : no;
+      if (rf && rt) {
+        links.push({
+          no: rn || no, from: rf, to: rt, key: (rn || no) + '|' + rf + '|' + rt,
+          name: name, geom: geom.slice().reverse(),
+          closed: rTsys ? String(row[rTsys] || '').trim() === '' : false
+        });
+      }
+    }
   });
 
   if (!links.length) {
@@ -525,13 +571,26 @@ function readNetwork(fileName, text) {
     }
   });
 
-  // A Visum link list is often exported with one row per link rather than one
-  // per direction. In that case the opposite direction is missing from the file
-  // even though the link carries traffic both ways, so it is created here with
-  // the polyline reversed. When the export does contain mirrored rows it is
-  // already per direction, and a link listed only once really is one-way.
+  // A direction closed to every transport system is how Visum writes a one-way
+  // street. It is dropped only when the opposite direction is open: when both
+  // are closed the export says nothing useful about which way traffic runs, so
+  // the link stays two-way rather than vanishing from the map.
   var byKey = {};
-  links.forEach(function (l) { byKey[l.key] = true; });
+  links.forEach(function (l) { byKey[l.key] = l; });
+  var oneWay = 0;
+  links = links.filter(function (l) {
+    var other = byKey[l.no + '|' + l.to + '|' + l.from];
+    if (l.closed && other && !other.closed) { oneWay++; return false; }
+    return true;
+  });
+
+  // A link list is often exported with one row per link rather than one per
+  // direction, and without the reverse columns. The opposite direction is then
+  // missing from the file even though the link carries traffic both ways, so it
+  // is created here with the polyline reversed. When the export does contain
+  // mirrored rows it is already per direction and nothing is added.
+  byKey = {};
+  links.forEach(function (l) { byKey[l.key] = l; });
   var mirrored = links.filter(function (l) {
     return byKey[l.no + '|' + l.to + '|' + l.from];
   }).length;
@@ -543,13 +602,13 @@ function readNetwork(fileName, text) {
       both.push(l);
       both.push({
         no: l.no, from: l.to, to: l.from, key: l.no + '|' + l.to + '|' + l.from,
-        name: l.name, geom: l.geom.slice().reverse()
+        name: l.name, geom: l.geom.slice().reverse(), closed: false
       });
       added++;
     });
     links = both;
   }
-  return { links: links, skipped: skipped, added: added };
+  return { links: links, skipped: skipped, added: added, oneWay: oneWay };
 }
 
 /* ------------------------------------------------------------------ *

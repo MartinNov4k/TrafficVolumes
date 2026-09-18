@@ -63,20 +63,30 @@ NO   FROMNODENO   TONODENO   WKTPOLY
 Místo `WKTPOLY` postačí i `FromNode\XCoord`, `FromNode\YCoord`,
 `ToNode\XCoord`, `ToNode\YCoord` — linky se pak vykreslí jako úsečky.
 
-### Jeden řádek na link vs. na směr
+### Jak se poznají oba směry
 
-Seznam linků se z Visumu často exportuje **s jedním řádkem na link**, ne na
-směr. V takovém případě aplikace druhý směr sama doplní (s obrácenou
-geometrií) a v hlavičce to napíše — *oba směry doplněny k 31 linkům*. Kliknout
-a zapsat tedy jde oba.
+Visum exportuje linky třemi způsoby a aplikace si poradí se všemi:
 
-Když export **obsahuje oba směry jako samostatné řádky** (mají prohozené
-`FROMNODENO`/`TONODENO`), bere se tak, jak je: nic se nedoplňuje a link
-uvedený jen jednou je skutečně jednosměrný.
+1. **Protisměr ve stejném řádku.** Seznam linků s atributy relace *ReverseLink*
+   má vedle `FROMNODENO`/`TONODENO` i `R_FROMNODENO`, `R_TONODENO`,
+   `R_TSYSSET`… Druhý směr se vezme odtud. Rozpozná se prefix `R_`, `REV_`,
+   `REVERSE_` i `REVERSELINK\`.
+2. **Každý směr jako vlastní řádek** (prohozené `FROMNODENO`/`TONODENO`).
+   Bere se tak, jak je.
+3. **Jeden řádek na link, bez informace o protisměru.** Druhý směr se doplní
+   s obrácenou geometrií a v hlavičce je napsáno *oba směry doplněny k N linkům*.
+
+**Jednosměrky** se poznají podle `TSYSSET`: prázdná množina dopravních systémů
+znamená, že je směr uzavřený, a takový směr se nenabízí. Když jsou uzavřené
+oba směry, export o skutečném provozu nic neříká a link zůstane obousměrný,
+aby z mapy nezmizel.
+
+Totéž platí pro GeoJSON i CSV — rozhodují názvy sloupců, ne formát souboru.
 
 ## Souřadnicové systémy
 
-Rozpoznají se samy: **S‑JTSK / Krovák** (EPSG:5514 i 5513) a **WGS84**.
+Rozpoznají se samy: **S‑JTSK / Krovák** (EPSG:5514 i 5513) a **WGS84**
+(včetně souřadnic se třetím rozměrem, který se ignoruje).
 Krovák je spočítaný přímo v aplikaci včetně transformace datumu
 Bessel → WGS84 (ověřeno proti příkladu z EPSG Guidance Note 7‑2 a proti PROJ).
 Neznámý systém se zobrazí v rovinném plátně — zadávání funguje stejně.

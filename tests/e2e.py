@@ -19,6 +19,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP = "file://" + os.path.join(ROOT, "TrafficVolumes.html")
 NET = os.path.join(ROOT, "samples", "sample_links.att")
 ONE_ROW = os.path.join(ROOT, "samples", "sample_links_one_row.att")
+REV_COLS = os.path.join(ROOT, "samples", "sample_links_reverse_cols.geojson")
 DL = sys.argv[1] if len(sys.argv) > 1 else tempfile.mkdtemp(prefix="tvol-")
 LAUNCH = {"args": ["--no-sandbox"]}
 if os.environ.get("TV_CHROMIUM"):
@@ -187,6 +188,37 @@ with sync_playwright() as pw:
     check("skutečné jednosměrky zůstaly", per["oneWay"] == 7, per)
     check("nic se nedoplňovalo", "doplněny" not in per["sub"], per["sub"])
     page4.close()
+
+    print("\n== protisměr v týchž sloupcích (R_FROMNODENO, R_TSYSSET) ==")
+    page5 = ctx.new_page()
+    page5.on("pageerror", lambda e: errs.append("rev-cols: " + str(e)))
+    page5.goto(APP); page5.wait_for_timeout(250)
+    page5.evaluate("() => { try { localStorage.clear(); } catch (e) {} }")
+    page5.set_input_files("#file", REV_COLS)
+    page5.wait_for_function("() => !!window.net", timeout=15000); page5.wait_for_timeout(400)
+    rev = page5.evaluate("""() => ({
+        n: net.links.length,
+        oneWay: net.links.filter(function (l) { return !pairOf(l.key).b; }).length,
+        crs: net.crs,
+        sub: document.getElementById('subtitle').textContent,
+        link101: Object.keys(net.byKey).filter(function (k) { return k.indexOf('101|') === 0; }),
+        link103: Object.keys(net.byKey).filter(function (k) { return k.indexOf('103|') === 0; }),
+        link111: Object.keys(net.byKey).filter(function (k) { return k.indexOf('111|') === 0; }) })""")
+    # 14 two-way + 2 one-way + 1 closed both ways, which stays two-way on the map
+    check("32 směrů ze 17 linků", rev["n"] == 32, rev)
+    check("2 jednosměrné podle TSYSSET", rev["oneWay"] == 2, rev)
+    check("nic se nedoplňovalo odhadem", "doplněny" not in rev["sub"], rev["sub"])
+    check("WGS84 rozpoznáno", "WGS84" in rev["crs"], rev["crs"])
+    check("obousměrný link má oba směry", len(rev["link101"]) == 2, rev["link101"])
+    check("uzavřený směr se zahodil", len(rev["link103"]) == 1, rev["link103"])
+    check("link uzavřený v obou směrech zůstal celý", len(rev["link111"]) == 2, rev["link111"])
+
+    page5.evaluate("() => selectLink(net.byKey[Object.keys(net.byKey).filter("
+                   + "function (k) { return k.indexOf('101|') === 0; })[0]])")
+    page5.wait_for_timeout(200)
+    check("panel nabídne oba směry",
+          page5.evaluate("() => document.querySelectorAll('#dirs input').length") == 2)
+    page5.close()
 
     page.screenshot(path=os.path.join(DL, "simple.png"))
     b.close()
