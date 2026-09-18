@@ -309,6 +309,50 @@ with sync_playwright() as pw:
     check("podkladová mapa se u místních souřadnic nenabízí", loc["hidden"], loc)
     page7.close()
 
+    print("\n== soubor puštěný kamkoli po stránce ==")
+    # Bez toho by prohlížeč puštěný soubor sám otevřel: odnavigoval by ze
+    # stránky a zadané hodnoty by byly pryč. Zóna se navíc po načtení skrývá,
+    # takže se soubor pouští právě mimo ni.
+    page8 = ctx.new_page()
+    page8.on("pageerror", lambda e: errs.append("drop: " + str(e)))
+    page8.on("dialog", lambda d: d.accept())
+    page8.goto(APP); page8.wait_for_timeout(250)
+    att_text = open(NET, "rb").read().decode("cp1250")
+
+    def drop_on(selector, name, content):
+        return page8.evaluate(
+            "([sel, name, content]) => {"
+            "  const dt = new DataTransfer();"
+            "  dt.items.add(new File([content], name, {type: 'text/plain'}));"
+            "  const target = document.querySelector(sel);"
+            "  let prevented = null;"
+            "  ['dragenter','dragover','drop'].forEach(function (type) {"
+            "    const ev = new DragEvent(type, {bubbles:true, cancelable:true, dataTransfer:dt});"
+            "    target.dispatchEvent(ev);"
+            "    if (type === 'drop') prevented = ev.defaultPrevented;"
+            "  });"
+            "  return prevented; }",
+            [selector, name, content])
+
+    check("puštění na zónu je odchycené", drop_on("#drop", "sample_links.att", att_text) is True)
+    page8.wait_for_function("() => !!window.net", timeout=15000); page8.wait_for_timeout(400)
+    check("síť se z puštěného souboru načetla",
+          page8.evaluate("() => net.links.length") == 55)
+
+    page8.evaluate("() => { values[net.links[0].key] = 999; updateProgress(); }")
+    navs = []
+    page8.on("framenavigated", lambda f: navs.append(f.url))
+    check("puštění na mapu je odchycené",
+          drop_on("#map", "TrafficVolumes.html", "<html></html>") is True)
+    page8.wait_for_timeout(700)
+    check("prohlížeč neodnavigoval ze stránky", navs == [], navs)
+    check("puštění na panel je odchycené",
+          drop_on("#panel", "sample_links.att", att_text) is True)
+    page8.wait_for_timeout(600)
+    check("stránka má vlastní ikonu, prohlížeč ji nehledá sám",
+          page8.evaluate("() => !!document.querySelector('link[rel=icon]')"))
+    page8.close()
+
     page.screenshot(path=os.path.join(DL, "simple.png"))
     b.close()
 print("\nkonzole:", errs[:5] if errs else "čistá")

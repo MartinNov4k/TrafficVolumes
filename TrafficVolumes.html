@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TrafficVolumes</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>🚦</text></svg>">
 <style>
 :root {
   --bg: #0f1420; --panel: #161d2c; --panel2: #1d2739; --line: #2a3648;
@@ -1338,19 +1339,28 @@ $('file').addEventListener('change', function () {
   this.value = '';
 });
 ['dragenter', 'dragover'].forEach(function (type) {
-  $('drop').addEventListener(type, function (e) {
-    e.preventDefault();
-    $('drop').classList.add('over');
-  });
+  $('drop').addEventListener(type, function () { $('drop').classList.add('over'); });
 });
 ['dragleave', 'drop'].forEach(function (type) {
-  $('drop').addEventListener(type, function (e) {
-    e.preventDefault();
-    $('drop').classList.remove('over');
-  });
+  $('drop').addEventListener(type, function () { $('drop').classList.remove('over'); });
 });
-$('drop').addEventListener('drop', function (e) {
-  if (e.dataTransfer && e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+
+// The whole window takes the drop, not just the dashed box. A file let go
+// anywhere else would otherwise be opened by the browser itself: it navigates
+// away from the page, and everything typed in so far is gone. That also happens
+// once the box is hidden, which is exactly when someone reaches for a new file.
+window.addEventListener('dragover', function (e) { e.preventDefault(); });
+window.addEventListener('dragenter', function (e) { e.preventDefault(); });
+window.addEventListener('drop', function (e) {
+  e.preventDefault();
+  var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (!file) return;
+  if (net && Object.keys(values).length
+      && !window.confirm('Načíst jinou síť? Zadané hodnoty se ztratí, pokud jste je '
+                         + 'neuložil do .att.')) {
+    return;
+  }
+  loadFile(file);
 });
 
 $('save').addEventListener('click', saveSelected);

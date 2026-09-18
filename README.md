@@ -14,7 +14,8 @@ To je celé. Funguje offline i z flash disku, nic se nikam neodesílá.
 ## Použití
 
 1. **Přetáhněte do okna export linků z Visumu** — `.att`, `.net`, `.csv`
-   nebo `.geojson`.
+   nebo `.geojson`. Pustit ho můžete kamkoli na stránku, i později, když
+   chcete načíst jinou síť.
 2. **Klikněte na link v mapě.** V panelu se objeví oba směry
    (`19 → 20` a `20 → 19`) a do každého se zapíše jeho intenzita.
    <kbd>Enter</kbd> uloží.
