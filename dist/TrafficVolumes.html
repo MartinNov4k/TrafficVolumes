@@ -1,0 +1,3530 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TrafficVolumes — zadávání intenzit</title>
+<style>:root {
+  --bg: #0f1420;
+  --panel: #161d2c;
+  --panel-2: #1d2739;
+  --line: #2a3648;
+  --text: #e6ebf2;
+  --muted: #94a3b8;
+  --accent: #4f9dff;
+  --ok: #37c98b;
+  --warn: #f5a524;
+  --danger: #ff6b6b;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font: 14px/1.45 "Segoe UI", system-ui, -apple-system, "Noto Sans", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+.hidden { display: none !important; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+h1, h2, h3 { margin: 0 0 6px; }
+a { color: var(--accent); }
+
+/* ---------- start screen ---------- */
+
+#start {
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  padding: 32px 20px;
+}
+.start-card { width: 100%; max-width: 760px; }
+.start-card > header { margin-bottom: 22px; }
+.start-card h1 { font-size: 24px; }
+
+#dropzone {
+  border: 2px dashed var(--line);
+  border-radius: 12px;
+  padding: 34px 24px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--panel);
+  transition: border-color .15s, background .15s;
+}
+#dropzone:hover, #dropzone.over { border-color: var(--accent); background: var(--panel-2); }
+#dropzone strong { display: block; font-size: 16px; margin-bottom: 6px; }
+
+section.block {
+  margin-top: 22px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px;
+}
+section.block > h2 { font-size: 15px; }
+
+.recent-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0; border-top: 1px solid var(--line);
+}
+.recent-row:first-of-type { border-top: none; }
+.recent-row .grow { flex: 1; min-width: 0; }
+.recent-row .grow b { display: block; }
+
+/* ---------- forms ---------- */
+
+.field { display: block; margin-bottom: 12px; }
+.field > span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+input[type=text], input[type=search], input[type=number], textarea, select {
+  width: 100%; padding: 8px 10px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+  font: inherit;
+}
+input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+textarea { resize: vertical; }
+.row { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 8px; }
+.row .field { flex: 1; margin-bottom: 0; }
+.row .shrink { flex: 0 0 110px; }
+.toggles { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); }
+.toggles label, .inline { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
+button, .button {
+  padding: 8px 12px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+  font: inherit; text-align: center; white-space: nowrap;
+}
+button:hover, .button:hover { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: not-allowed; border-color: var(--line); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #05203f; font-weight: 600; }
+button.icon { flex: 0 0 auto; padding: 8px 10px; }
+.buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.buttons > button, .buttons > .button { flex: 1 1 auto; }
+kbd {
+  font: 11px/1 ui-monospace, monospace; padding: 2px 4px; border-radius: 3px;
+  background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.15);
+}
+.note {
+  border-left: 3px solid var(--accent); background: var(--panel-2);
+  padding: 10px 12px; border-radius: 0 6px 6px 0; font-size: 13px; margin-top: 12px;
+}
+.note.error { border-color: var(--danger); color: #ffd7d7; }
+.note.warn { border-color: var(--warn); }
+
+/* ---------- work screen ---------- */
+
+#work { display: flex; height: 100%; }
+#sidebar {
+  width: 368px; min-width: 368px;
+  background: var(--panel); border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; overflow-y: auto;
+  padding: 14px 16px; gap: 14px;
+}
+#sidebar header h1 { font-size: 16px; }
+.progress .bar { height: 8px; border-radius: 4px; background: var(--panel-2); overflow: hidden; }
+.progress .bar > div { height: 100%; width: 0; background: var(--ok); transition: width .2s; }
+.progress p { margin: 6px 0 0; font-size: 12px; }
+
+.detail { border-top: 1px solid var(--line); padding-top: 12px; }
+.detail h2 { font-size: 15px; }
+.detail > p { margin: 0 0 10px; font-size: 12px; }
+details { margin-top: 10px; font-size: 12px; }
+details summary { cursor: pointer; color: var(--muted); }
+#attrs-list { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 8px 0 0; }
+#attrs-list dt { color: var(--muted); }
+#attrs-list dd { margin: 0; overflow-wrap: anywhere; }
+#history-list { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+#sidebar footer { margin-top: auto; border-top: 1px solid var(--line); padding-top: 12px; }
+#save-state { font-size: 11px; margin: 8px 0 0; }
+#save-state.error { color: var(--danger); }
+
+#map-wrap { position: relative; flex: 1; min-width: 0; }
+#map { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+#map.dragging { cursor: grabbing; }
+#map-tools { position: absolute; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 6px; }
+#map-tools button { width: 36px; height: 36px; padding: 0; font-size: 16px; background: rgba(22,29,44,.92); }
+#attribution, #hint {
+  position: absolute; bottom: 6px; background: rgba(15,20,32,.78);
+  padding: 2px 6px; border-radius: 4px; font-size: 11px; color: var(--muted);
+}
+#attribution { right: 8px; }
+#hint { left: 12px; }
+#toast {
+  position: absolute; left: 50%; top: 16px; transform: translateX(-50%);
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+  padding: 8px 14px; box-shadow: 0 6px 20px rgba(0,0,0,.4); max-width: 70%; z-index: 5;
+}
+#toast.error { border-color: var(--danger); color: #ffd7d7; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+@media (max-width: 880px) {
+  #work { flex-direction: column; }
+  #sidebar { width: 100%; min-width: 0; max-height: 54%; border-right: none; border-bottom: 1px solid var(--line); }
+}
+</style>
+</head>
+<body>
+
+<div id="start">
+  <div class="start-card">
+    <header>
+      <h1>TrafficVolumes</h1>
+      <p class="muted">Ruční zadávání intenzit dopravy na linky z PTV Visum. Běží celé
+        ve vašem prohlížeči — nic se nikam neodesílá a není potřeba žádná instalace.</p>
+    </header>
+
+    <div id="dropzone">
+      <strong>Přetáhněte sem soubor</strong>
+      <span class="muted">export sítě z Visumu (<code>.att</code>, <code>.net</code>,
+        <code>.csv</code>, <code>.geojson</code>) nebo dříve uloženou práci
+        (<code>.html</code>, <code>.json</code>)</span>
+      <div class="buttons"><button type="button" id="btn-browse">Vybrat soubor…</button></div>
+    </div>
+    <input type="file" id="file-input" class="hidden"
+           accept=".att,.net,.csv,.tsv,.txt,.geojson,.json,.html,.htm">
+
+    <div id="start-message"></div>
+
+    <section class="block hidden" id="setup">
+      <h2>Nastavení projektu</h2>
+      <p class="muted small" id="setup-summary"></p>
+      <label class="field">
+        <span>Název projektu</span>
+        <input type="text" id="setup-name" placeholder="Sčítání 2026">
+      </label>
+      <label class="field">
+        <span>Souřadnicový systém sítě</span>
+        <select id="setup-crs"></select>
+      </label>
+      <h3 class="small muted" style="margin-top:16px">Zadávané veličiny</h3>
+      <p class="muted small">Název se stane ID uživatelského atributu ve Visumu.</p>
+      <div id="setup-fields" data-dynamic></div>
+      <div class="buttons">
+        <button type="button" id="btn-add-field">+ Další veličina</button>
+      </div>
+      <div class="buttons" style="margin-top:16px">
+        <button type="button" class="primary" id="btn-create">Vytvořit projekt</button>
+        <button type="button" id="btn-cancel-setup">Zrušit</button>
+      </div>
+    </section>
+
+    <section class="block hidden" id="recent-block">
+      <h2>Rozpracovaná práce v tomto prohlížeči</h2>
+      <p class="muted small">Ukládá se automaticky po každém zápisu.</p>
+      <div id="recent" data-dynamic></div>
+    </section>
+
+    <section class="block">
+      <h2>Jak to funguje</h2>
+      <ol class="muted small" style="margin:8px 0 0; padding-left:20px; line-height:1.7">
+        <li>Načtěte export linků z Visumu (ideálně síť uloženou jako <code>.net</code>,
+            nebo seznam linků do <code>.att</code> se sloupcem <code>WKTPOLY</code>).</li>
+        <li>V mapě klikněte na směr linku a zapište intenzitu. Každý směr je
+            samostatná čára odsazená vpravo ve směru jízdy.</li>
+        <li>Práce se průběžně ukládá do prohlížeče. Tlačítkem
+            <b>Uložit práci</b> vznikne jeden HTML soubor se sítí i daty —
+            tím se práce předává dál.</li>
+        <li>Pro Visum exportujte <code>.att</code> (načte se přímo) nebo
+            <code>CSV</code> pro vlastní skript.</li>
+      </ol>
+    </section>
+  </div>
+</div>
+
+<div id="work" class="hidden">
+  <aside id="sidebar">
+    <header>
+      <h1 id="project-name">TrafficVolumes</h1>
+      <p id="project-meta" class="muted small"></p>
+    </header>
+
+    <section class="progress">
+      <div class="bar"><div id="progress-fill"></div></div>
+      <p id="progress-text" class="muted"></p>
+    </section>
+
+    <section>
+      <label class="field">
+        <span>Jméno sčítajícího</span>
+        <input type="text" id="surveyor" placeholder="např. Novák" autocomplete="off">
+      </label>
+      <label class="field">
+        <span>Hledat (číslo linku, uzel, název ulice)</span>
+        <input type="search" id="search" placeholder="např. 1023 nebo Husova" autocomplete="off">
+      </label>
+      <div class="toggles">
+        <label><input type="checkbox" id="show-labels" checked> popisky hodnot</label>
+        <label><input type="checkbox" id="show-bands" checked> šířka dle intenzity</label>
+        <label><input type="checkbox" id="show-arrows" checked> šipky směru</label>
+        <label id="basemap-toggle"><input type="checkbox" id="show-basemap"> podkladová mapa</label>
+      </div>
+    </section>
+
+    <section id="detail" class="detail hidden">
+      <h2 id="detail-title">Link</h2>
+      <p id="detail-sub" class="muted"></p>
+      <form id="value-form" autocomplete="off" novalidate>
+        <div id="value-inputs" data-dynamic></div>
+        <label class="field">
+          <span>Poznámka</span>
+          <textarea id="note" rows="2" placeholder="volitelně"></textarea>
+        </label>
+        <label class="inline small"><input type="checkbox" id="flagged"> označit k prověření</label>
+        <div class="buttons">
+          <button type="submit" class="primary">Uložit <kbd>Enter</kbd></button>
+          <button type="button" id="btn-clear">Vymazat</button>
+        </div>
+        <div class="buttons">
+          <button type="button" id="btn-opposite">Opačný směr <kbd>O</kbd></button>
+          <button type="button" id="btn-copy">Kopírovat →opačný</button>
+        </div>
+        <div class="buttons">
+          <button type="button" id="btn-next">Další nevyplněný <kbd>N</kbd></button>
+        </div>
+      </form>
+      <details><summary>Atributy z Visumu</summary><dl id="attrs-list" data-dynamic></dl></details>
+      <details><summary>Historie změn</summary><ul id="history-list" data-dynamic></ul></details>
+    </section>
+
+    <section id="placeholder" class="detail muted small">
+      <p>Klikněte na směr linku v mapě a zadejte intenzitu.</p>
+      <p>Každý link je vykreslen zvlášť pro každý směr, odsazeně vpravo ve směru jízdy.
+         Šipka ukazuje směr jízdy.</p>
+    </section>
+
+    <footer>
+      <div class="buttons">
+        <button type="button" class="primary" id="btn-save-html">Uložit práci (HTML)</button>
+      </div>
+      <div class="buttons">
+        <button type="button" id="btn-file-sink">Průběžně ukládat do souboru…</button>
+      </div>
+      <div class="buttons">
+        <button type="button" id="btn-csv">CSV</button>
+        <button type="button" id="btn-att">.att pro Visum</button>
+        <button type="button" id="btn-png">PNG kartogram</button>
+      </div>
+      <div class="buttons">
+        <button type="button" id="btn-geojson">GeoJSON</button>
+        <button type="button" id="btn-script">Visum skript</button>
+        <button type="button" id="btn-merge">Načíst hodnoty…</button>
+      </div>
+      <label class="inline small" style="margin-top:10px">
+        <input type="checkbox" id="include-empty"> exportovat i nevyplněné směry
+      </label>
+      <p id="save-state" class="muted"></p>
+      <p class="muted small" id="legend" data-dynamic></p>
+      <div class="buttons">
+        <button type="button" id="btn-back">Zavřít projekt</button>
+      </div>
+      <input type="file" id="merge-input" class="hidden" accept=".csv,.att,.txt,.json,.html">
+    </footer>
+  </aside>
+
+  <main id="map-wrap">
+    <canvas id="map"></canvas>
+    <div id="map-tools">
+      <button type="button" id="zoom-in" title="Přiblížit">+</button>
+      <button type="button" id="zoom-out" title="Oddálit">−</button>
+      <button type="button" id="zoom-fit" title="Zobrazit celou síť">⤢</button>
+    </div>
+    <div id="attribution"></div>
+    <div id="hint">Táhnutím posunete mapu, kolečkem přiblížíte. Kliknutí vybere směr linku.</div>
+    <div id="toast" class="hidden"></div>
+  </main>
+</div>
+
+<script>/* ===== 01-projection.js ===== */
+/* Coordinate transformations, ported from the Python implementation.
+ *
+ * S-JTSK / Krovak (EPSG:5514 and the older southing-westing 5513/2065) is
+ * implemented directly because that is what Czech Visum networks use, and a
+ * browser has no PROJ to fall back on. Verified against the EPSG 9819 worked
+ * example and against PROJ.
+ */
+(function (TV) {
+  'use strict';
+
+  var A = 6377397.155;
+  var E2 = 0.006674372230614;
+  var E = Math.sqrt(E2);
+  var PHI_C = 49.5 * Math.PI / 180;
+  var LAMBDA_0 = 24.83333333333333 * Math.PI / 180;
+  var ALPHA_C = 30.28813975277778 * Math.PI / 180;
+  var PHI_P = 78.5 * Math.PI / 180;
+  var KP = 0.9999;
+
+  var A_K = A * Math.sqrt(1 - E2) / (1 - E2 * Math.pow(Math.sin(PHI_C), 2));
+  var B_K = Math.sqrt(1 + (E2 * Math.pow(Math.cos(PHI_C), 4)) / (1 - E2));
+  var GAMMA_0 = Math.asin(Math.sin(PHI_C) / B_K);
+  var T_0 = Math.tan(Math.PI / 4 + GAMMA_0 / 2)
+    * Math.pow((1 + E * Math.sin(PHI_C)) / (1 - E * Math.sin(PHI_C)), E * B_K / 2)
+    / Math.pow(Math.tan(Math.PI / 4 + PHI_C / 2), B_K);
+  var N_K = Math.sin(PHI_P);
+  var R_0 = KP * A_K / Math.tan(PHI_P);
+
+  var EARTH_R = 6378137.0;
+  var MERC_HALF = Math.PI * EARTH_R;
+
+  // Seven parameter Helmert, position vector convention, as PROJ uses for
+  // S-JTSK (+towgs84=570.8,85.7,462.8,4.998,1.587,5.261,3.56). Without it the
+  // network sits 100-200 m away from any background map.
+  var HT = [570.8, 85.7, 462.8];
+  var HR = [4.998, 1.587, 5.261].map(function (v) { return v / 3600 * Math.PI / 180; });
+  var HS = 3.56e-6;
+  var BESSEL = { a: 6377397.155, f: 1 / 299.1528128 };
+  var WGS = { a: 6378137.0, f: 1 / 298.257223563 };
+
+  function geodeticToGeocentric(lon, lat, ell) {
+    var e2 = ell.f * (2 - ell.f);
+    var phi = lat * Math.PI / 180;
+    var lam = lon * Math.PI / 180;
+    var n = ell.a / Math.sqrt(1 - e2 * Math.pow(Math.sin(phi), 2));
+    return [
+      n * Math.cos(phi) * Math.cos(lam),
+      n * Math.cos(phi) * Math.sin(lam),
+      n * (1 - e2) * Math.sin(phi)
+    ];
+  }
+
+  function geocentricToGeodetic(x, y, z, ell) {
+    var e2 = ell.f * (2 - ell.f);
+    var lam = Math.atan2(y, x);
+    var p = Math.sqrt(x * x + y * y);
+    var phi = Math.atan2(z, p * (1 - e2));
+    for (var i = 0; i < 8; i += 1) {
+      var n = ell.a / Math.sqrt(1 - e2 * Math.pow(Math.sin(phi), 2));
+      var previous = phi;
+      phi = Math.atan2(z + e2 * n * Math.sin(phi), p);
+      if (Math.abs(phi - previous) < 1e-13) break;
+    }
+    return [lam * 180 / Math.PI, phi * 180 / Math.PI];
+  }
+
+  function helmert(x, y, z, inverse) {
+    var scale = 1 + HS;
+    if (!inverse) {
+      return [
+        HT[0] + scale * (x - HR[2] * y + HR[1] * z),
+        HT[1] + scale * (HR[2] * x + y - HR[0] * z),
+        HT[2] + scale * (-HR[1] * x + HR[0] * y + z)
+      ];
+    }
+    var dx = (x - HT[0]) / scale;
+    var dy = (y - HT[1]) / scale;
+    var dz = (z - HT[2]) / scale;
+    return [
+      dx + HR[2] * dy - HR[1] * dz,
+      -HR[2] * dx + dy + HR[0] * dz,
+      HR[1] * dx - HR[0] * dy + dz
+    ];
+  }
+
+  function besselToWgs84(lon, lat) {
+    var p = geodeticToGeocentric(lon, lat, BESSEL);
+    var q = helmert(p[0], p[1], p[2], false);
+    return geocentricToGeodetic(q[0], q[1], q[2], WGS);
+  }
+
+  function wgs84ToBessel(lon, lat) {
+    var p = geodeticToGeocentric(lon, lat, WGS);
+    var q = helmert(p[0], p[1], p[2], true);
+    return geocentricToGeodetic(q[0], q[1], q[2], BESSEL);
+  }
+
+  /** Krovak southing/westing to (lon, lat) on the Bessel 1841 ellipsoid. */
+  function krovakToBessel(southing, westing) {
+    var r = Math.sqrt(southing * southing + westing * westing);
+    if (r === 0) throw new Error('Krovak origin cannot be transformed');
+    var theta = Math.atan2(westing, southing);
+    var d = theta / N_K;
+    var t = 2 * (Math.atan(
+      Math.pow(R_0 / r, 1 / N_K) * Math.tan(Math.PI / 4 + PHI_P / 2)
+    ) - Math.PI / 4);
+    var u = Math.asin(
+      Math.cos(ALPHA_C) * Math.sin(t) - Math.sin(ALPHA_C) * Math.cos(t) * Math.cos(d)
+    );
+    var v = Math.asin(Math.cos(t) * Math.sin(d) / Math.cos(u));
+
+    var phi = u;
+    for (var i = 0; i < 12; i += 1) {
+      var previous = phi;
+      phi = 2 * (Math.atan(
+        Math.pow(T_0, -1 / B_K)
+        * Math.pow(Math.tan(u / 2 + Math.PI / 4), 1 / B_K)
+        * Math.pow((1 + E * Math.sin(phi)) / (1 - E * Math.sin(phi)), E / 2)
+      ) - Math.PI / 4);
+      if (Math.abs(phi - previous) < 1e-13) break;
+    }
+    return [(LAMBDA_0 - v / B_K) * 180 / Math.PI, phi * 180 / Math.PI];
+  }
+
+  function krovakToWgs84(southing, westing) {
+    var p = krovakToBessel(southing, westing);
+    return besselToWgs84(p[0], p[1]);
+  }
+
+  function wgs84ToKrovak(lon, lat) {
+    var g = wgs84ToBessel(lon, lat);
+    var phi = g[1] * Math.PI / 180;
+    var lam = g[0] * Math.PI / 180;
+    var u = 2 * (Math.atan(
+      T_0 * Math.pow(Math.tan(phi / 2 + Math.PI / 4), B_K)
+      / Math.pow((1 + E * Math.sin(phi)) / (1 - E * Math.sin(phi)), E * B_K / 2)
+    ) - Math.PI / 4);
+    var v = B_K * (LAMBDA_0 - lam);
+    var t = Math.asin(
+      Math.cos(ALPHA_C) * Math.sin(u) + Math.sin(ALPHA_C) * Math.cos(u) * Math.cos(v)
+    );
+    var d = Math.asin(Math.cos(u) * Math.sin(v) / Math.cos(t));
+    var theta = N_K * d;
+    var r = R_0 * Math.pow(Math.tan(Math.PI / 4 + PHI_P / 2), N_K)
+      / Math.pow(Math.tan(Math.PI / 4 + t / 2), N_K);
+    return [r * Math.cos(theta), r * Math.sin(theta)];
+  }
+
+  function webMercatorToWgs84(x, y) {
+    return [
+      (x / EARTH_R) * 180 / Math.PI,
+      (2 * Math.atan(Math.exp(y / EARTH_R)) - Math.PI / 2) * 180 / Math.PI
+    ];
+  }
+
+  function wgs84ToWebMercator(lon, lat) {
+    var clamped = Math.max(-85.05112878, Math.min(85.05112878, lat));
+    return [
+      (lon * Math.PI / 180) * EARTH_R,
+      Math.log(Math.tan(Math.PI / 4 + (clamped * Math.PI / 180) / 2)) * EARTH_R
+    ];
+  }
+
+  /** Coordinate systems the app can place on a real map without any library. */
+  var CRS_LIST = [
+    { id: 'auto', label: 'Rozpoznat automaticky' },
+    { id: 'epsg:5514', label: 'S-JTSK / Krovák East North (EPSG:5514)' },
+    { id: 'epsg:5513', label: 'S-JTSK / Krovák jih-západ (EPSG:5513, 2065)' },
+    { id: 'wgs84', label: 'WGS84 zeměpisné souřadnice (EPSG:4326)' },
+    { id: 'epsg:3857', label: 'Web Mercator (EPSG:3857)' },
+    { id: 'local', label: 'Neznámý / místní systém (rovinné plátno)' }
+  ];
+
+  /** Build a transform from source coordinates to (lon, lat), or a passthrough. */
+  function getProjector(crs) {
+    var key = String(crs || 'local').toLowerCase();
+    if (key === 'wgs84' || key === 'epsg:4326') {
+      return { crs: 'EPSG:4326', mode: 'geographic', fn: function (x, y) { return [x, y]; } };
+    }
+    if (key === 'epsg:5514' || key === 's-jtsk' || key === 'krovak') {
+      // East North axis order: easting = -westing, northing = -southing.
+      return {
+        crs: 'EPSG:5514', mode: 'geographic',
+        fn: function (x, y) { return krovakToWgs84(-y, -x); }
+      };
+    }
+    if (key === 'epsg:5513' || key === 'epsg:2065') {
+      return {
+        crs: 'EPSG:5513', mode: 'geographic',
+        fn: function (x, y) { return krovakToWgs84(x, y); }
+      };
+    }
+    if (key === 'epsg:3857' || key === 'webmercator') {
+      return { crs: 'EPSG:3857', mode: 'geographic', fn: webMercatorToWgs84 };
+    }
+    return { crs: 'LOCAL', mode: 'local', fn: function (x, y) { return [x, y]; } };
+  }
+
+  /** Guess the coordinate system from a handful of sample coordinates. */
+  function detectCrs(samples) {
+    var points = samples.filter(function (p) {
+      return isFinite(p[0]) && isFinite(p[1]);
+    });
+    if (!points.length) return 'local';
+
+    function fraction(predicate) {
+      var hits = 0;
+      for (var i = 0; i < points.length; i += 1) {
+        if (predicate(points[i][0], points[i][1])) hits += 1;
+      }
+      return hits / points.length;
+    }
+
+    if (fraction(function (x, y) { return Math.abs(x) <= 180 && Math.abs(y) <= 90; }) > 0.98) {
+      return 'wgs84';
+    }
+    if (fraction(function (x, y) {
+      return x > -950000 && x < -400000 && y > -1300000 && y < -900000;
+    }) > 0.9) return 'epsg:5514';
+    if (fraction(function (x, y) {
+      return x > 900000 && x < 1300000 && y > 400000 && y < 950000;
+    }) > 0.9) return 'epsg:5513';
+    if (fraction(function (x, y) {
+      return Math.abs(x) <= MERC_HALF && Math.abs(y) <= MERC_HALF;
+    }) > 0.98 && fraction(function (x, y) {
+      return Math.abs(x) > 1400000 || Math.abs(y) > 1400000;
+    }) > 0.9) return 'epsg:3857';
+    return 'local';
+  }
+
+  TV.projection = {
+    EARTH_R: EARTH_R,
+    MERC_HALF: MERC_HALF,
+    CRS_LIST: CRS_LIST,
+    krovakToBessel: krovakToBessel,
+    krovakToWgs84: krovakToWgs84,
+    wgs84ToKrovak: wgs84ToKrovak,
+    besselToWgs84: besselToWgs84,
+    wgs84ToBessel: wgs84ToBessel,
+    webMercatorToWgs84: webMercatorToWgs84,
+    wgs84ToWebMercator: wgs84ToWebMercator,
+    getProjector: getProjector,
+    detectCrs: detectCrs
+  };
+})(typeof globalThis !== 'undefined'
+  ? (globalThis.TV = globalThis.TV || {})
+  : (this.TV = this.TV || {}));
+
+/* ===== 02-parser.js ===== */
+/* Reading Visum exports in the browser: attribute files, CSV and GeoJSON. */
+(function (TV) {
+  'use strict';
+
+  var SEPARATORS = [';', '\t', ','];
+  var NUMBER_RE = /^[+-]?(?:\d[\d.,]*|[.,]\d+)(?:[eE][+-]?\d+)?/;
+  var WKT_RE = /(?:MULTI)?LINESTRING\s*Z?\s*M?\s*\(/i;
+
+  var ALIASES = {
+    no: ['NO', 'LINKNO', 'LINK_NO', 'ID'],
+    fromNode: ['FROMNODENO', 'FROM_NODE', 'FROMNODE', 'ANODE', 'NODEFROM'],
+    toNode: ['TONODENO', 'TO_NODE', 'TONODE', 'BNODE', 'NODETO'],
+    name: ['NAME', 'STREETNAME', 'LINKNAME', 'NAZEV'],
+    typeNo: ['TYPENO', 'TYPE', 'LINKTYPE', 'TYP'],
+    length: ['LENGTH', 'LEN', 'DELKA'],
+    capacity: ['CAPPRT', 'CAPACITY', 'CAP', 'KAPACITA'],
+    wkt: ['WKTPOLY', 'WKT', 'GEOMETRY', 'THE_GEOM'],
+    xFrom: ['FROMNODE\\XCOORD', 'XCOORDFROM', 'FROMNODEXCOORD', 'XFROM', 'FROM_X', 'X1'],
+    yFrom: ['FROMNODE\\YCOORD', 'YCOORDFROM', 'FROMNODEYCOORD', 'YFROM', 'FROM_Y', 'Y1'],
+    xTo: ['TONODE\\XCOORD', 'XCOORDTO', 'TONODEXCOORD', 'XTO', 'TO_X', 'X2'],
+    yTo: ['TONODE\\YCOORD', 'YCOORDTO', 'TONODEYCOORD', 'YTO', 'TO_Y', 'Y2']
+  };
+
+  function ImportError(message) {
+    var error = new Error(message);
+    error.name = 'ImportError';
+    return error;
+  }
+
+  /** Decode a dropped file, guessing the encoding the way Visum writes them. */
+  function decodeBuffer(buffer) {
+    var bytes = new Uint8Array(buffer);
+    if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+      return new TextDecoder('utf-8').decode(bytes.subarray(3));
+    }
+    try {
+      return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    } catch (e) {
+      // Visum on Czech Windows writes cp1250.
+      try {
+        return new TextDecoder('windows-1250').decode(bytes);
+      } catch (e2) {
+        return new TextDecoder('iso-8859-1').decode(bytes);
+      }
+    }
+  }
+
+  function norm(name) {
+    return String(name).replace(/[\s_]/g, '').toUpperCase();
+  }
+
+  function resolve(columns, role) {
+    var lookup = {};
+    columns.forEach(function (c) { lookup[norm(c)] = c; });
+    var candidates = ALIASES[role];
+    for (var i = 0; i < candidates.length; i += 1) {
+      var hit = lookup[norm(candidates[i])];
+      if (hit !== undefined) return hit;
+    }
+    return null;
+  }
+
+  function parseNumber(value) {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'number') return isFinite(value) ? value : null;
+    var text = String(value).trim().replace(/"/g, '');
+    if (!text) return null;
+    var match = NUMBER_RE.exec(text);
+    if (!match) return null;
+    var number = match[0].replace(/[.,]+$/, '');
+    var mantissa = number;
+    var exponent = '';
+    var marker = number.search(/[eE]/);
+    if (marker >= 0) {
+      mantissa = number.slice(0, marker);
+      exponent = number.slice(marker);
+    }
+    var lastDot = mantissa.lastIndexOf('.');
+    var lastComma = mantissa.lastIndexOf(',');
+    if (lastDot >= 0 && lastComma >= 0) {
+      var at = Math.max(lastDot, lastComma);
+      mantissa = mantissa.slice(0, at).replace(/[.,]/g, '') + '.'
+        + mantissa.slice(at + 1).replace(/[.,]/g, '');
+    } else {
+      var separator = lastDot >= 0 ? '.' : (lastComma >= 0 ? ',' : '');
+      if (separator) {
+        var at2 = mantissa.lastIndexOf(separator);
+        mantissa = mantissa.slice(0, at2).split(separator).join('') + '.' + mantissa.slice(at2 + 1);
+      }
+    }
+    var result = parseFloat(mantissa + exponent);
+    return isFinite(result) ? result : null;
+  }
+
+  function guessSeparator(header) {
+    var body = header.indexOf(':') >= 0 ? header.slice(header.indexOf(':') + 1) : header;
+    var best = ';';
+    var bestCount = 0;
+    SEPARATORS.forEach(function (sep) {
+      var count = body.split(sep).length - 1;
+      if (count > bestCount) { bestCount = count; best = sep; }
+    });
+    return bestCount ? best : ';';
+  }
+
+  /** Split a data row, honouring double quoted fields. */
+  function splitRow(line, separator) {
+    if (line.indexOf('"') < 0) {
+      return line.split(separator).map(function (cell) { return cell.trim(); });
+    }
+    var out = [];
+    var current = '';
+    var inQuotes = false;
+    for (var i = 0; i < line.length; i += 1) {
+      var ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i += 1; continue; }
+        inQuotes = !inQuotes;
+      } else if (ch === separator && !inQuotes) {
+        out.push(current.trim());
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+    out.push(current.trim());
+    return out;
+  }
+
+  /** Parse an attribute file into its $TABLE blocks. */
+  function parseAtt(text) {
+    var tables = [];
+    var current = null;
+    var lines = text.split(/\r\n|\r|\n/);
+    for (var i = 0; i < lines.length; i += 1) {
+      var line = lines[i].replace(/^﻿/, '');
+      var stripped = line.trim();
+      if (!stripped || stripped[0] === '*') continue;
+      if (stripped[0] === '$') {
+        if (stripped.indexOf(':') < 0) { current = null; continue; }
+        var at = stripped.indexOf(':');
+        var head = stripped.slice(1, at).trim().toUpperCase();
+        var separator = guessSeparator(stripped);
+        var columns = stripped.slice(at + 1).split(separator)
+          .map(function (c) { return c.trim().replace(/^"|"$/g, ''); })
+          .filter(function (c) { return c.length > 0; });
+        current = { name: head, columns: columns, rows: [], separator: separator };
+        tables.push(current);
+        continue;
+      }
+      if (!current) continue;
+      var cells = splitRow(line, current.separator);
+      var row = {};
+      for (var c = 0; c < current.columns.length; c += 1) {
+        row[current.columns[c]] = cells[c] === undefined ? '' : cells[c];
+      }
+      current.rows.push(row);
+    }
+    return tables;
+  }
+
+  function findTable(tables, names) {
+    var wanted = names.map(function (n) { return n.toUpperCase(); });
+    for (var i = 0; i < tables.length; i += 1) {
+      if (wanted.indexOf(tables[i].name) >= 0) return tables[i];
+    }
+    return null;
+  }
+
+  function dedupe(points) {
+    var out = [];
+    for (var i = 0; i < points.length; i += 1) {
+      var p = points[i];
+      if (!out.length || Math.abs(p[0] - out[out.length - 1][0]) > 1e-9
+          || Math.abs(p[1] - out[out.length - 1][1]) > 1e-9) {
+        out.push([Number(p[0]), Number(p[1])]);
+      }
+    }
+    return out;
+  }
+
+  function parseWkt(text) {
+    if (!text) return [];
+    var match = WKT_RE.exec(text);
+    if (!match) return [];
+    var body = text.slice(match.index + match[0].length - 1);
+    var depth = 0;
+    var end = body.length;
+    for (var i = 0; i < body.length; i += 1) {
+      if (body[i] === '(') depth += 1;
+      else if (body[i] === ')') {
+        depth -= 1;
+        if (depth === 0) { end = i; break; }
+      }
+    }
+    body = body.slice(1, end);
+    var points = [];
+    body.replace(/\(/g, ' ').replace(/\)/g, ',').split(',').forEach(function (chunk) {
+      var parts = chunk.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        var x = parseFloat(parts[0]);
+        var y = parseFloat(parts[1]);
+        if (isFinite(x) && isFinite(y)) points.push([x, y]);
+      }
+    });
+    return dedupe(points);
+  }
+
+  function nodeCoordinates(tables) {
+    var table = findTable(tables, ['NODE', 'NODES', 'KNOTEN']);
+    if (!table) return {};
+    var noCol = resolve(table.columns, 'no');
+    var xCol = null;
+    var yCol = null;
+    table.columns.forEach(function (c) {
+      if (norm(c) === 'XCOORD' || norm(c) === 'X') xCol = xCol || c;
+      if (norm(c) === 'YCOORD' || norm(c) === 'Y') yCol = yCol || c;
+    });
+    if (!noCol || !xCol || !yCol) return {};
+    var nodes = {};
+    table.rows.forEach(function (row) {
+      var x = parseNumber(row[xCol]);
+      var y = parseNumber(row[yCol]);
+      if (x === null || y === null) return;
+      nodes[String(row[noCol]).trim()] = [x, y];
+    });
+    return nodes;
+  }
+
+  function linkPolylines(tables) {
+    var table = findTable(tables, ['LINKPOLY', 'LINKPOLYGON']);
+    if (!table) return {};
+    var cols = {};
+    table.columns.forEach(function (c) { cols[norm(c)] = c; });
+    var linkCol = cols.LINKNO || cols.NO;
+    var fromCol = cols.FROMNODENO;
+    var toCol = cols.TONODENO;
+    var indexCol = cols.INDEX || cols.IDX;
+    var xCol = cols.XCOORD || cols.X;
+    var yCol = cols.YCOORD || cols.Y;
+    if (!linkCol || !fromCol || !toCol || !xCol || !yCol) return {};
+    var buckets = {};
+    table.rows.forEach(function (row, order) {
+      var x = parseNumber(row[xCol]);
+      var y = parseNumber(row[yCol]);
+      if (x === null || y === null) return;
+      var key = [String(row[linkCol]).trim(), String(row[fromCol]).trim(),
+        String(row[toCol]).trim()].join('|');
+      var index = indexCol ? parseNumber(row[indexCol]) : null;
+      (buckets[key] = buckets[key] || []).push({
+        order: index === null ? order : index, point: [x, y]
+      });
+    });
+    var out = {};
+    Object.keys(buckets).forEach(function (key) {
+      out[key] = buckets[key]
+        .sort(function (a, b) { return a.order - b.order; })
+        .map(function (entry) { return entry.point; });
+    });
+    return out;
+  }
+
+  function rowsToLinks(rows, columns, nodes, polylines, warnings, wktColumn) {
+    var noCol = resolve(columns, 'no');
+    var fromCol = resolve(columns, 'fromNode');
+    var toCol = resolve(columns, 'toNode');
+    if (!noCol || !fromCol || !toCol) {
+      throw ImportError(
+        'Export musí obsahovat sloupce NO, FROMNODENO a TONODENO. Nalezeno: '
+        + (columns.join(', ') || 'nic')
+      );
+    }
+    var wktCol = wktColumn || resolve(columns, 'wkt');
+    var xf = resolve(columns, 'xFrom');
+    var yf = resolve(columns, 'yFrom');
+    var xt = resolve(columns, 'xTo');
+    var yt = resolve(columns, 'yTo');
+    var nameCol = resolve(columns, 'name');
+    var typeCol = resolve(columns, 'typeNo');
+    var lengthCol = resolve(columns, 'length');
+    var capCol = resolve(columns, 'capacity');
+
+    var sources = {};
+    var links = [];
+    var skipped = 0;
+
+    rows.forEach(function (row) {
+      var linkNo = String(row[noCol] === undefined ? '' : row[noCol]).trim();
+      var fromNode = String(row[fromCol] === undefined ? '' : row[fromCol]).trim();
+      var toNode = String(row[toCol] === undefined ? '' : row[toCol]).trim();
+      if (!linkNo || !fromNode || !toNode) { skipped += 1; return; }
+
+      var geometry = [];
+      var source = '';
+      if (wktCol) {
+        geometry = parseWkt(String(row[wktCol] || ''));
+        source = 'WKTPOLY';
+      }
+      if (!geometry.length) {
+        var start = nodes[fromNode];
+        var end = nodes[toNode];
+        var middle = polylines[[linkNo, fromNode, toNode].join('|')];
+        if (!middle) {
+          var reverse = polylines[[linkNo, toNode, fromNode].join('|')];
+          middle = reverse ? reverse.slice().reverse() : [];
+        }
+        if (start && end) {
+          geometry = dedupe([start].concat(middle, [end]));
+          source = middle.length ? '$LINKPOLY' : '$NODE';
+        }
+      }
+      if (!geometry.length && xf && yf && xt && yt) {
+        var x1 = parseNumber(row[xf]);
+        var y1 = parseNumber(row[yf]);
+        var x2 = parseNumber(row[xt]);
+        var y2 = parseNumber(row[yt]);
+        if (x1 !== null && y1 !== null && x2 !== null && y2 !== null) {
+          geometry = dedupe([[x1, y1], [x2, y2]]);
+          source = 'souřadnice uzlů';
+        }
+      }
+      if (geometry.length < 2) { skipped += 1; return; }
+      sources[source] = (sources[source] || 0) + 1;
+
+      var attrs = {};
+      Object.keys(row).forEach(function (key) {
+        if (key === wktCol || key === '__GEOM__') return;
+        if (row[key] !== '' && row[key] !== null && row[key] !== undefined) attrs[key] = row[key];
+      });
+
+      links.push({
+        linkNo: linkNo,
+        fromNode: fromNode,
+        toNode: toNode,
+        key: linkNo + '|' + fromNode + '|' + toNode,
+        geom: geometry,
+        name: nameCol ? String(row[nameCol] || '').trim() : '',
+        typeNo: typeCol ? String(row[typeCol] || '').trim() : '',
+        length: lengthCol ? parseNumber(row[lengthCol]) : null,
+        capacity: capCol ? parseNumber(row[capCol]) : null,
+        attrs: attrs
+      });
+    });
+
+    if (skipped) {
+      warnings.push(skipped + ' řádků bylo přeskočeno, chybí jim geometrie nebo klíč.');
+    }
+    if (!links.length) {
+      throw ImportError(
+        'Nepodařilo se sestavit geometrii žádného linku. Exportujte linky včetně '
+        + 'sloupce WKTPOLY, nebo uložte celou síť tak, aby obsahovala tabulku $NODE.'
+      );
+    }
+    var geometrySource = Object.keys(sources).sort(function (a, b) {
+      return sources[b] - sources[a];
+    })[0] || 'neznámý';
+    return { links: links, geometrySource: geometrySource };
+  }
+
+  function importAtt(text) {
+    var tables = parseAtt(text);
+    var linkTable = findTable(tables, ['LINK', 'LINKS', 'STRECKE', 'STRECKEN']);
+    if (!linkTable) {
+      var available = tables.map(function (t) { return t.name; }).join(', ') || 'žádné';
+      throw ImportError('V souboru není tabulka $LINK (nalezené tabulky: ' + available + ').');
+    }
+    var warnings = [];
+    var built = rowsToLinks(
+      linkTable.rows, linkTable.columns, nodeCoordinates(tables), linkPolylines(tables), warnings
+    );
+    return {
+      links: built.links,
+      columns: linkTable.columns.slice(),
+      warnings: warnings,
+      geometrySource: built.geometrySource
+    };
+  }
+
+  function importCsv(text) {
+    var lines = text.split(/\r\n|\r|\n/).filter(function (line) {
+      return line.trim() && line.trim()[0] !== '*';
+    });
+    if (!lines.length) throw ImportError('Soubor je prázdný.');
+    var separator = guessSeparator(lines[0]);
+    var columns = splitRow(lines[0], separator);
+    var rows = [];
+    for (var i = 1; i < lines.length; i += 1) {
+      var cells = splitRow(lines[i], separator);
+      var row = {};
+      columns.forEach(function (column, index) {
+        row[column] = cells[index] === undefined ? '' : cells[index];
+      });
+      rows.push(row);
+    }
+    var warnings = [];
+    var built = rowsToLinks(rows, columns, {}, {}, warnings);
+    return {
+      links: built.links, columns: columns, warnings: warnings,
+      geometrySource: built.geometrySource
+    };
+  }
+
+  function importGeoJson(text) {
+    var data = JSON.parse(text);
+    if (!data || !data.features) throw ImportError('Soubor není GeoJSON FeatureCollection.');
+    var rows = [];
+    var columnSet = {};
+    data.features.forEach(function (feature) {
+      var geometry = (feature && feature.geometry) || {};
+      var type = String(geometry.type || '').toLowerCase();
+      var coords = geometry.coordinates || [];
+      var points = [];
+      if (type === 'linestring') {
+        points = coords.filter(function (c) { return c.length >= 2; })
+          .map(function (c) { return [Number(c[0]), Number(c[1])]; });
+      } else if (type === 'multilinestring') {
+        coords.forEach(function (part) {
+          part.forEach(function (c) {
+            if (c.length >= 2) points.push([Number(c[0]), Number(c[1])]);
+          });
+        });
+      } else {
+        return;
+      }
+      points = dedupe(points);
+      if (points.length < 2) return;
+      var row = Object.assign({}, feature.properties || {});
+      Object.keys(row).forEach(function (key) { columnSet[key] = true; });
+      row.__GEOM__ = 'LINESTRING(' + points.map(function (p) {
+        return p[0] + ' ' + p[1];
+      }).join(', ') + ')';
+      rows.push(row);
+    });
+    if (!rows.length) throw ImportError('GeoJSON neobsahuje žádný LineString.');
+    var columns = Object.keys(columnSet);
+    var warnings = [];
+    var built = rowsToLinks(rows, columns.concat(['__GEOM__']), {}, {}, warnings, '__GEOM__');
+    return {
+      links: built.links, columns: columns, warnings: warnings, geometrySource: 'GeoJSON'
+    };
+  }
+
+  /** Pick the reader from the file name. */
+  function importNetwork(fileName, text) {
+    var suffix = (fileName.split('.').pop() || '').toLowerCase();
+    if (suffix === 'att' || suffix === 'net' || suffix === 'txt') return importAtt(text);
+    if (suffix === 'csv' || suffix === 'tsv') return importCsv(text);
+    if (suffix === 'geojson' || suffix === 'json') return importGeoJson(text);
+    throw ImportError(
+      'Neznámý typ souboru ".' + suffix + '". Podporované: .att, .net, .csv, .geojson'
+    );
+  }
+
+  /**
+   * Make every geometry run from its own from-node to its own to-node.
+   * Visum exports the same polyline for both directions, so the reverse one has
+   * to be flipped before the map can offset it to the correct side.
+   */
+  function orientDirections(links) {
+    var byLink = {};
+    links.forEach(function (link) {
+      (byLink[link.linkNo] = byLink[link.linkNo] || []).push(link);
+    });
+    Object.keys(byLink).forEach(function (linkNo) {
+      var group = byLink[linkNo];
+      var reference = group[0];
+      for (var i = 1; i < group.length; i += 1) {
+        var link = group[i];
+        if (link.fromNode === reference.toNode && link.toNode === reference.fromNode) {
+          var a = link.geom[0];
+          var b = reference.geom[0];
+          if (Math.abs(a[0] - b[0]) < 1e-6 && Math.abs(a[1] - b[1]) < 1e-6) {
+            link.geom = link.geom.slice().reverse();
+          }
+        }
+      }
+    });
+    return links;
+  }
+
+  /** Read counted values back from a CSV or .att produced by this app. */
+  function readValueRecords(fileName, text) {
+    var suffix = (fileName.split('.').pop() || '').toLowerCase();
+    var columns;
+    var rows;
+    if (suffix === 'att' || suffix === 'net' || suffix === 'txt') {
+      var table = findTable(parseAtt(text), ['LINK', 'LINKS']);
+      if (!table) throw ImportError('V souboru není tabulka $LINK.');
+      columns = table.columns;
+      rows = table.rows;
+    } else {
+      var lines = text.split(/\r\n|\r|\n/).filter(function (line) {
+        return line.trim() && line.trim()[0] !== '*';
+      });
+      if (!lines.length) throw ImportError('Soubor je prázdný.');
+      var separator = guessSeparator(lines[0]);
+      columns = splitRow(lines[0].replace(/^﻿/, ''), separator);
+      rows = lines.slice(1).map(function (line) {
+        var cells = splitRow(line, separator);
+        var row = {};
+        columns.forEach(function (c, i) { row[c] = cells[i] === undefined ? '' : cells[i]; });
+        return row;
+      });
+    }
+    var noCol = resolve(columns, 'no');
+    var fromCol = resolve(columns, 'fromNode');
+    var toCol = resolve(columns, 'toNode');
+    if (!noCol || !fromCol || !toCol) {
+      throw ImportError('Soubor musí obsahovat sloupce NO, FROMNODENO a TONODENO.');
+    }
+    var skip = {};
+    [noCol, fromCol, toCol].forEach(function (c) { skip[c] = true; });
+    columns.forEach(function (c) {
+      if (['NAME', 'NOTE', 'POZNAMKA', 'SURVEYOR', 'UPDATEDAT'].indexOf(norm(c)) >= 0) {
+        skip[c] = true;
+      }
+    });
+    var records = [];
+    rows.forEach(function (row) {
+      var linkNo = String(row[noCol] || '').trim();
+      var fromNode = String(row[fromCol] || '').trim();
+      var toNode = String(row[toCol] || '').trim();
+      if (!linkNo || !fromNode || !toNode) return;
+      var values = {};
+      var any = false;
+      columns.forEach(function (c) {
+        if (skip[c]) return;
+        var raw = String(row[c] === undefined ? '' : row[c]).trim();
+        if (raw !== '') { values[c.toUpperCase()] = raw; any = true; }
+      });
+      if (any) records.push({ key: linkNo + '|' + fromNode + '|' + toNode, values: values });
+    });
+    return records;
+  }
+
+  TV.parser = {
+    decodeBuffer: decodeBuffer,
+    parseAtt: parseAtt,
+    findTable: findTable,
+    parseNumber: parseNumber,
+    parseWkt: parseWkt,
+    importAtt: importAtt,
+    importCsv: importCsv,
+    importGeoJson: importGeoJson,
+    importNetwork: importNetwork,
+    orientDirections: orientDirections,
+    readValueRecords: readValueRecords,
+    ImportError: ImportError
+  };
+})(typeof globalThis !== 'undefined'
+  ? (globalThis.TV = globalThis.TV || {})
+  : (this.TV = this.TV || {}));
+
+/* ===== 03-project.js ===== */
+/* Project state: the network, the values to collect and what has been typed in. */
+(function (TV) {
+  'use strict';
+
+  var ATTR_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]{0,48}$/;
+
+  var DEFAULT_FIELDS = [
+    { name: 'VOL_MANUAL', label: 'Intenzita', valueType: 'int', unit: 'voz/den' }
+  ];
+
+  function normaliseField(field, position) {
+    var name = String(field.name || '').trim().toUpperCase();
+    if (!ATTR_NAME_RE.test(name)) {
+      throw new Error(
+        '"' + (field.name || '') + '" není platný název uživatelského atributu ve Visumu. '
+        + 'Použijte písmena, číslice a podtržítko, začněte písmenem.'
+      );
+    }
+    var valueType = field.valueType || 'int';
+    if (['int', 'float', 'text'].indexOf(valueType) < 0) {
+      throw new Error('Neznámý typ hodnoty "' + valueType + '".');
+    }
+    return {
+      name: name,
+      label: String(field.label || '').trim() || name,
+      valueType: valueType,
+      unit: String(field.unit || '').trim(),
+      position: position
+    };
+  }
+
+  /** Validate and normalise one value typed in by the surveyor. */
+  function coerce(field, raw) {
+    if (raw === null || raw === undefined) return null;
+    var text = String(raw).trim();
+    if (text === '') return null;
+    if (field.valueType === 'text') return text;
+    text = text.replace(/[\s ]/g, '').replace(',', '.');
+    var number = parseFloat(text);
+    if (!isFinite(number) || !/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(text)) {
+      throw new Error(field.label + ': "' + raw + '" není číslo.');
+    }
+    if (field.valueType === 'int') {
+      if (Math.abs(number - Math.round(number)) > 1e-9) {
+        throw new Error(field.label + ': "' + raw + '" musí být celé číslo.');
+      }
+      return String(Math.round(number));
+    }
+    return String(number);
+  }
+
+  function Project(options) {
+    this.id = options.id || ('tv-' + Date.now().toString(36) + '-'
+      + Math.random().toString(36).slice(2, 8));
+    this.name = options.name || 'Sčítání';
+    this.crs = options.crs || 'LOCAL';
+    this.coordMode = options.coordMode || 'local';
+    this.source = options.source || '';
+    this.createdAt = options.createdAt || new Date().toISOString();
+    this.geometrySource = options.geometrySource || '';
+    this.fields = (options.fields || DEFAULT_FIELDS).map(normaliseField);
+    this.links = options.links || [];
+    this.entries = options.entries || {};   // key -> {values, note, status, surveyor, updatedAt}
+    this.history = options.history || [];
+    this.surveyor = options.surveyor || '';
+    this.byKey = {};
+    var self = this;
+    this.links.forEach(function (link) { self.byKey[link.key] = link; });
+    this._reverseCache = null;
+  }
+
+  Project.prototype.field = function (name) {
+    var upper = String(name).toUpperCase();
+    for (var i = 0; i < this.fields.length; i += 1) {
+      if (this.fields[i].name === upper) return this.fields[i];
+    }
+    return null;
+  };
+
+  Project.prototype.primaryField = function () {
+    return this.fields.length ? this.fields[0].name : null;
+  };
+
+  Project.prototype.entry = function (key) {
+    return this.entries[key] || { values: {}, note: '', status: 'empty', surveyor: '', updatedAt: null };
+  };
+
+  Project.prototype.valuesOf = function (key) {
+    return this.entry(key).values || {};
+  };
+
+  Project.prototype.numericValue = function (key, fieldName) {
+    var raw = this.valuesOf(key)[fieldName || this.primaryField()];
+    if (raw === undefined || raw === null || raw === '') return null;
+    var number = parseFloat(String(raw).replace(',', '.'));
+    return isFinite(number) ? number : null;
+  };
+
+  Project.prototype.reverseKey = function (key) {
+    if (!this._reverseCache) {
+      var cache = {};
+      this.links.forEach(function (link) {
+        var reverse = link.linkNo + '|' + link.toNode + '|' + link.fromNode;
+        cache[link.key] = reverse;
+      });
+      this._reverseCache = cache;
+    }
+    var candidate = this._reverseCache[key];
+    return candidate && this.byKey[candidate] ? candidate : null;
+  };
+
+  /** Store the values for one direction and record the change. */
+  Project.prototype.setValues = function (key, rawValues, options) {
+    var settings = options || {};
+    if (!this.byKey[key]) throw new Error('Směr linku "' + key + '" není součástí projektu.');
+
+    var self = this;
+    var cleaned = {};
+    Object.keys(rawValues).forEach(function (name) {
+      var field = self.field(name);
+      if (!field) throw new Error('Neznámá veličina "' + name + '".');
+      cleaned[field.name] = coerce(field, rawValues[name]);
+    });
+
+    var entry = this.entries[key];
+    var previous = (entry && entry.values) || {};
+    var values = Object.assign({}, previous);
+    var timestamp = new Date().toISOString();
+    var surveyor = settings.surveyor === undefined ? this.surveyor : settings.surveyor;
+    var changed = false;
+
+    Object.keys(cleaned).forEach(function (name) {
+      var next = cleaned[name];
+      var before = previous[name] === undefined ? null : previous[name];
+      if (before === next) return;
+      changed = true;
+      if (next === null) delete values[name];
+      else values[name] = next;
+      self.history.push({
+        key: key, field: name, from: before, to: next, surveyor: surveyor, ts: timestamp
+      });
+    });
+    if (self.history.length > 5000) self.history.splice(0, self.history.length - 5000);
+
+    var hasValue = Object.keys(values).some(function (name) {
+      return values[name] !== null && values[name] !== '';
+    });
+    var note = settings.note === undefined ? ((entry && entry.note) || '') : String(settings.note);
+    var status = settings.status
+      || (hasValue ? 'filled' : (note ? 'noted' : 'empty'));
+
+    if (status === 'empty' && !note) {
+      delete this.entries[key];
+    } else {
+      this.entries[key] = {
+        values: values, note: note, status: status,
+        surveyor: surveyor, updatedAt: timestamp
+      };
+    }
+    return { changed: changed, entry: this.entry(key) };
+  };
+
+  Project.prototype.clearValues = function (key, options) {
+    var blank = {};
+    this.fields.forEach(function (field) { blank[field.name] = null; });
+    return this.setValues(key, blank, Object.assign({ note: '', status: 'empty' }, options || {}));
+  };
+
+  Project.prototype.stats = function () {
+    var total = this.links.length;
+    var filled = 0;
+    var flagged = 0;
+    var self = this;
+    Object.keys(this.entries).forEach(function (key) {
+      var entry = self.entries[key];
+      var has = Object.keys(entry.values || {}).some(function (name) {
+        return entry.values[name] !== null && entry.values[name] !== '';
+      });
+      if (has) filled += 1;
+      if (entry.status === 'flagged') flagged += 1;
+    });
+    return { total: total, filled: filled, flagged: flagged, remaining: total - filled };
+  };
+
+  Project.prototype.bounds = function () {
+    if (!this.links.length) return null;
+    var minx = Infinity;
+    var miny = Infinity;
+    var maxx = -Infinity;
+    var maxy = -Infinity;
+    this.links.forEach(function (link) {
+      link.geom.forEach(function (p) {
+        if (p[0] < minx) minx = p[0];
+        if (p[1] < miny) miny = p[1];
+        if (p[0] > maxx) maxx = p[0];
+        if (p[1] > maxy) maxy = p[1];
+      });
+    });
+    return [minx, miny, maxx, maxy];
+  };
+
+  /** Merge values coming from a CSV, an .att or another saved session. */
+  Project.prototype.importRecords = function (records, options) {
+    var settings = options || {};
+    var updated = 0;
+    var missing = 0;
+    var self = this;
+    records.forEach(function (record) {
+      if (!self.byKey[record.key]) { missing += 1; return; }
+      if (settings.keepExisting) {
+        var existing = self.valuesOf(record.key);
+        var hasValue = Object.keys(existing).some(function (name) {
+          return existing[name] !== null && existing[name] !== '';
+        });
+        if (hasValue) return;
+      }
+      var accepted = {};
+      Object.keys(record.values).forEach(function (name) {
+        if (self.field(name)) accepted[name] = record.values[name];
+      });
+      if (!Object.keys(accepted).length) return;
+      self.setValues(record.key, accepted, { surveyor: settings.surveyor || 'import' });
+      updated += 1;
+    });
+    return { updated: updated, missing: missing };
+  };
+
+  /** Everything needed to restore this project later, as plain JSON. */
+  Project.prototype.toJSON = function () {
+    return {
+      format: 'trafficvolumes/1',
+      id: this.id,
+      name: this.name,
+      crs: this.crs,
+      coordMode: this.coordMode,
+      source: this.source,
+      createdAt: this.createdAt,
+      geometrySource: this.geometrySource,
+      surveyor: this.surveyor,
+      fields: this.fields,
+      links: this.links,
+      entries: this.entries,
+      history: this.history
+    };
+  };
+
+  Project.fromJSON = function (data) {
+    if (!data || data.format !== 'trafficvolumes/1') {
+      throw new Error('Soubor neobsahuje uloženou práci z této aplikace.');
+    }
+    return new Project(data);
+  };
+
+  /** Build a project from a freshly imported network. */
+  Project.fromImport = function (imported, settings) {
+    var options = settings || {};
+    var crs = options.crs;
+    if (!crs || crs === 'auto') {
+      crs = TV.projection.detectCrs(imported.links.slice(0, 500).map(function (link) {
+        return link.geom[0];
+      }));
+    }
+    var projector = TV.projection.getProjector(crs);
+    var links = TV.parser.orientDirections(imported.links);
+    var kept = [];
+    links.forEach(function (link) {
+      var geom = [];
+      for (var i = 0; i < link.geom.length; i += 1) {
+        var p = projector.fn(link.geom[i][0], link.geom[i][1]);
+        if (!isFinite(p[0]) || !isFinite(p[1])) return;
+        geom.push([Math.round(p[0] * 1e7) / 1e7, Math.round(p[1] * 1e7) / 1e7]);
+      }
+      if (geom.length < 2) return;
+      link.geom = geom;
+      kept.push(link);
+    });
+    if (!kept.length) {
+      throw new Error('Po převodu souřadnic nezbyl žádný link. Zkontrolujte souřadnicový systém.');
+    }
+    // Duplicate direction keys would make two map features share one value.
+    var seen = {};
+    var unique = kept.filter(function (link) {
+      if (seen[link.key]) return false;
+      seen[link.key] = true;
+      return true;
+    });
+    return new Project({
+      name: options.name || 'Sčítání',
+      crs: projector.crs,
+      coordMode: projector.mode,
+      source: options.source || '',
+      geometrySource: imported.geometrySource,
+      fields: options.fields || DEFAULT_FIELDS,
+      links: unique
+    });
+  };
+
+  TV.Project = Project;
+  TV.projectHelpers = {
+    DEFAULT_FIELDS: DEFAULT_FIELDS,
+    normaliseField: normaliseField,
+    coerce: coerce,
+    ATTR_NAME_RE: ATTR_NAME_RE
+  };
+})(typeof globalThis !== 'undefined'
+  ? (globalThis.TV = globalThis.TV || {})
+  : (this.TV = this.TV || {}));
+
+/* ===== 04-autosave.js ===== */
+/* Autosave into the browser so that closing the tab never loses a day's work.
+ *
+ * IndexedDB holds the whole project, network included, because localStorage is
+ * far too small for a real network. localStorage keeps a pointer to the most
+ * recent session and, if IndexedDB ever fails, a copy of the typed values as a
+ * last resort — the network can always be dropped in again.
+ */
+(function (TV) {
+  'use strict';
+
+  var DB_NAME = 'trafficvolumes';
+  var STORE = 'projects';
+  var POINTER_KEY = 'tv.lastProject';
+  var FALLBACK_KEY = 'tv.fallbackEntries';
+
+  function openDb() {
+    return new Promise(function (resolve, reject) {
+      if (typeof indexedDB === 'undefined') {
+        reject(new Error('IndexedDB není v tomto prohlížeči dostupná.'));
+        return;
+      }
+      var request = indexedDB.open(DB_NAME, 1);
+      request.onupgradeneeded = function () {
+        var db = request.result;
+        if (!db.objectStoreNames.contains(STORE)) {
+          db.createObjectStore(STORE, { keyPath: 'id' });
+        }
+      };
+      request.onsuccess = function () { resolve(request.result); };
+      request.onerror = function () { reject(request.error); };
+      request.onblocked = function () {
+        reject(new Error('Databáze je blokovaná jiným otevřeným oknem aplikace.'));
+      };
+    });
+  }
+
+  /** Run one IndexedDB request and resolve with its result. */
+  function run(mode, makeRequest) {
+    return openDb().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(STORE, mode);
+        var request = makeRequest(tx.objectStore(STORE));
+        var value;
+        request.onsuccess = function () { value = request.result; };
+        request.onerror = function () { reject(request.error); };
+        tx.oncomplete = function () { db.close(); resolve(value); };
+        tx.onerror = function () { db.close(); reject(tx.error); };
+        tx.onabort = function () { db.close(); reject(tx.error); };
+      });
+    });
+  }
+
+  function withStorage(work, fallback) {
+    try {
+      return work(window.localStorage);
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  var Autosave = {
+    available: typeof indexedDB !== 'undefined',
+    lastSavedAt: null,
+    lastError: null,
+    _timer: null,
+
+    save: function (project) {
+      var self = this;
+      var payload = project.toJSON();
+      payload.savedAt = new Date().toISOString();
+      return run('readwrite', function (store) {
+        return store.put(payload);
+      }).then(function () {
+        self.lastSavedAt = payload.savedAt;
+        self.lastError = null;
+        withStorage(function (storage) {
+          storage.setItem(POINTER_KEY, JSON.stringify({
+            id: payload.id,
+            name: payload.name,
+            savedAt: payload.savedAt,
+            total: payload.links.length
+          }));
+        });
+        return payload.savedAt;
+      }).catch(function (error) {
+        self.lastError = error;
+        withStorage(function (storage) {
+          storage.setItem(FALLBACK_KEY, JSON.stringify({
+            id: payload.id,
+            name: payload.name,
+            savedAt: payload.savedAt,
+            fields: payload.fields,
+            entries: payload.entries
+          }));
+        });
+        throw error;
+      });
+    },
+
+    /** Debounced save; a burst of quick edits collapses into one write. */
+    scheduleSave: function (project, onDone) {
+      var self = this;
+      clearTimeout(this._timer);
+      this._timer = setTimeout(function () {
+        self.save(project)
+          .then(function (at) { if (onDone) onDone(null, at); })
+          .catch(function (error) { if (onDone) onDone(error, null); });
+      }, 400);
+    },
+
+    /** Flush a pending debounced save immediately. */
+    flush: function (project) {
+      clearTimeout(this._timer);
+      return this.save(project);
+    },
+
+    list: function () {
+      return run('readonly', function (store) {
+        return store.getAll();
+      }).then(function (rows) {
+        return (rows || []).map(function (row) {
+          return {
+            id: row.id,
+            name: row.name,
+            savedAt: row.savedAt,
+            total: (row.links || []).length,
+            filled: Object.keys(row.entries || {}).length
+          };
+        }).sort(function (a, b) {
+          return String(b.savedAt || '').localeCompare(String(a.savedAt || ''));
+        });
+      }).catch(function () { return []; });
+    },
+
+    load: function (id) {
+      return run('readonly', function (store) { return store.get(id); })
+        .then(function (row) { return row || null; });
+    },
+
+    remove: function (id) {
+      return run('readwrite', function (store) { return store.delete(id); })
+        .then(function () {
+          withStorage(function (storage) {
+            var raw = storage.getItem(POINTER_KEY);
+            if (raw && JSON.parse(raw).id === id) storage.removeItem(POINTER_KEY);
+          });
+        });
+    },
+
+    /** Values kept in localStorage after an IndexedDB failure, if any. */
+    fallbackEntries: function () {
+      return withStorage(function (storage) {
+        var raw = storage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : null;
+      }, null);
+    },
+
+    clearFallback: function () {
+      withStorage(function (storage) { storage.removeItem(FALLBACK_KEY); });
+    }
+  };
+
+  TV.autosave = Autosave;
+})(typeof globalThis !== 'undefined'
+  ? (globalThis.TV = globalThis.TV || {})
+  : (this.TV = this.TV || {}));
+
+/* Optional upgrade: keep writing the work straight into a file on disk.
+ *
+ * Where the File System Access API exists (Chrome and Edge, also from a file://
+ * URL), the surveyor picks a destination once and every change is written
+ * there. That puts the data in a real file the whole time, not only inside the
+ * browser profile. */
+(function (TV) {
+  'use strict';
+
+  var FileSink = {
+    supported: typeof window !== 'undefined' && typeof window.showSaveFilePicker === 'function',
+    handle: null,
+    fileName: '',
+    lastWrittenAt: null,
+    lastError: null,
+    _timer: null,
+    _writing: false,
+    _pending: null,
+
+    /** Ask for a destination file. Must be called from a user gesture. */
+    choose: function (suggestedName) {
+      if (!this.supported) {
+        return Promise.reject(new Error(
+          'Tento prohlížeč neumí průběžný zápis do souboru. Použijte Chrome nebo Edge, '
+          + 'nebo práci ukládejte tlačítkem "Uložit práci (HTML)".'
+        ));
+      }
+      var self = this;
+      return window.showSaveFilePicker({
+        suggestedName: suggestedName,
+        types: [{
+          description: 'TrafficVolumes – rozpracovaná práce',
+          accept: { 'text/html': ['.html'] }
+        }]
+      }).then(function (handle) {
+        self.handle = handle;
+        self.fileName = handle.name;
+        self.lastError = null;
+        return handle.name;
+      });
+    },
+
+    forget: function () {
+      clearTimeout(this._timer);
+      this.handle = null;
+      this.fileName = '';
+      this.lastWrittenAt = null;
+      this._pending = null;
+    },
+
+    /** Debounced write; writes are serialised so they cannot interleave. */
+    schedule: function (getContent, onDone) {
+      if (!this.handle) return;
+      var self = this;
+      clearTimeout(this._timer);
+      this._timer = setTimeout(function () {
+        self._write(getContent, onDone);
+      }, 1200);
+    },
+
+    _write: function (getContent, onDone) {
+      var self = this;
+      if (this._writing) {
+        this._pending = { getContent: getContent, onDone: onDone };
+        return;
+      }
+      this._writing = true;
+      Promise.resolve()
+        .then(function () { return self.handle.createWritable(); })
+        .then(function (writable) {
+          return writable.write(getContent()).then(function () { return writable.close(); });
+        })
+        .then(function () {
+          self.lastWrittenAt = new Date().toISOString();
+          self.lastError = null;
+          if (onDone) onDone(null, self.lastWrittenAt);
+        })
+        .catch(function (error) {
+          self.lastError = error;
+          if (onDone) onDone(error, null);
+        })
+        .then(function () {
+          self._writing = false;
+          var pending = self._pending;
+          self._pending = null;
+          if (pending) self._write(pending.getContent, pending.onDone);
+        });
+    }
+  };
+
+  TV.fileSink = FileSink;
+})(typeof globalThis !== 'undefined'
+  ? (globalThis.TV = globalThis.TV || {})
+  : (this.TV = this.TV || {}));
+
+/* ===== 05-export.js ===== */
+/* Everything the surveyor can hand back: CSV, a Visum attribute file, GeoJSON,
+ * a PNG of the volume plot and a self contained HTML file that carries the
+ * whole project inside it. */
+(function (TV) {
+  'use strict';
+
+  var DIACRITICS = {
+    'á': 'a', 'č': 'c', 'ď': 'd', 'é': 'e', 'ě': 'e', 'í': 'i', 'ň': 'n', 'ó': 'o',
+    'ř': 'r', 'š': 's', 'ť': 't', 'ú': 'u', 'ů': 'u', 'ý': 'y', 'ž': 'z',
+    'Á': 'A', 'Č': 'C', 'Ď': 'D', 'É': 'E', 'Ě': 'E', 'Í': 'I', 'Ň': 'N', 'Ó': 'O',
+    'Ř': 'R', 'Š': 'S', 'Ť': 'T', 'Ú': 'U', 'Ů': 'U', 'Ý': 'Y', 'Ž': 'Z'
+  };
+
+  /** Visum reads attribute files as cp1250; keeping them ASCII avoids the issue. */
+  function toAscii(text) {
+    return String(text === null || text === undefined ? '' : text).replace(
+      /[^\x00-\x7F]/g,
+      function (ch) { return DIACRITICS[ch] !== undefined ? DIACRITICS[ch] : '?'; }
+    );
+  }
+
+  function slug(text) {
+    var ascii = toAscii(text).replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^_+|_+$/g, '');
+    return ascii || 'export';
+  }
+
+  function formatValue(field, raw) {
+    if (raw === null || raw === undefined || raw === '') return '';
+    if (field.valueType === 'text') return String(raw);
+    var number = TV.parser.parseNumber(raw);
+    if (number === null) return '';
+    if (field.valueType === 'int') return String(Math.round(number));
+    return String(Math.round(number * 1e6) / 1e6);
+  }
+
+  function quoteCsv(value, separator) {
+    var text = value === null || value === undefined ? '' : String(value);
+    if (text.indexOf(separator) >= 0 || text.indexOf('"') >= 0 || /[\r\n]/.test(text)) {
+      return '"' + text.replace(/"/g, '""') + '"';
+    }
+    return text;
+  }
+
+  /** Directions in Visum key order, optionally including the untouched ones. */
+  function rowsOf(project, includeEmpty) {
+    var rows = project.links.slice().sort(function (a, b) {
+      var na = parseInt(a.linkNo, 10);
+      var nb = parseInt(b.linkNo, 10);
+      if (isFinite(na) && isFinite(nb) && na !== nb) return na - nb;
+      if (a.linkNo !== b.linkNo) return a.linkNo < b.linkNo ? -1 : 1;
+      return a.fromNode < b.fromNode ? -1 : (a.fromNode > b.fromNode ? 1 : 0);
+    });
+    if (includeEmpty) return rows;
+    return rows.filter(function (link) {
+      var values = project.valuesOf(link.key);
+      return Object.keys(values).some(function (name) {
+        return values[name] !== null && values[name] !== '';
+      });
+    });
+  }
+
+  function toCsv(project, options) {
+    var settings = options || {};
+    var separator = settings.separator || ';';
+    var lines = [];
+    var header = ['NO', 'FROMNODENO', 'TONODENO', 'NAME']
+      .concat(project.fields.map(function (f) { return f.name; }))
+      .concat(['NOTE', 'SURVEYOR', 'UPDATED_AT']);
+    lines.push(header.join(separator));
+    rowsOf(project, settings.includeEmpty).forEach(function (link) {
+      var entry = project.entry(link.key);
+      var cells = [link.linkNo, link.fromNode, link.toNode, link.name]
+        .concat(project.fields.map(function (field) {
+          return formatValue(field, entry.values[field.name]);
+        }))
+        .concat([entry.note || '', entry.surveyor || '', entry.updatedAt || '']);
+      lines.push(cells.map(function (cell) {
+        return quoteCsv(cell, separator);
+      }).join(separator));
+    });
+    return lines.join('\r\n') + '\r\n';
+  }
+
+  function attTypeName(valueType) {
+    return { int: 'Integer', float: 'Double', text: 'Text' }[valueType] || 'Text';
+  }
+
+  function toAtt(project, options) {
+    var settings = options || {};
+    var stats = project.stats();
+    var lines = ['$VISION'];
+    var comments = [
+      'Traffic volumes entered manually with TrafficVolumes',
+      'Project    : ' + toAscii(project.name),
+      'Source net : ' + toAscii(project.source),
+      'Exported   : ' + new Date().toISOString().slice(0, 19).replace('T', ' '),
+      'Directions : ' + stats.filled + ' filled of ' + stats.total,
+      '',
+      'Before reading this file, create the user defined attributes on the link',
+      'network object, using exactly these IDs and types:'
+    ];
+    project.fields.forEach(function (field) {
+      comments.push('  ' + field.name + '  ' + attTypeName(field.valueType)
+        + (field.unit ? ' [' + toAscii(field.unit) + ']' : '')
+        + '  -- ' + toAscii(field.label));
+    });
+    comments.push('');
+    comments.push('Then read this file as an attribute file. The key columns');
+    comments.push('NO;FROMNODENO;TONODENO address one direction of each link, so');
+    comments.push('both directions keep their own value.');
+    comments.forEach(function (comment) { lines.push('* ' + comment); });
+    lines.push('*');
+    lines.push('$LINK:NO;FROMNODENO;TONODENO;'
+      + project.fields.map(function (f) { return f.name; }).join(';'));
+
+    rowsOf(project, settings.includeEmpty).forEach(function (link) {
+      var values = project.valuesOf(link.key);
+      var cells = [link.linkNo, link.fromNode, link.toNode].concat(
+        project.fields.map(function (field) {
+          return toAscii(formatValue(field, values[field.name]));
+        })
+      );
+      lines.push(cells.join(';'));
+    });
+    return lines.join('\r\n') + '\r\n';
+  }
+
+  function toGeoJson(project) {
+    if (project.coordMode !== 'geographic') {
+      throw new Error(
+        'GeoJSON potřebuje zeměpisné souřadnice, tento projekt používá místní systém.'
+      );
+    }
+    var features = project.links.map(function (link) {
+      var entry = project.entry(link.key);
+      var properties = {
+        NO: link.linkNo, FROMNODENO: link.fromNode, TONODENO: link.toNode,
+        NAME: link.name, NOTE: entry.note || '', STATUS: entry.status
+      };
+      project.fields.forEach(function (field) {
+        properties[field.name] = entry.values[field.name] === undefined
+          ? null : entry.values[field.name];
+      });
+      return {
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: link.geom },
+        properties: properties
+      };
+    });
+    return JSON.stringify({ type: 'FeatureCollection', features: features }, null, 1);
+  }
+
+  /** A ready to run script for the Visum side of the workflow. */
+  function visumScript(project, attFileName) {
+    var codes = { int: 1, float: 2, text: 5 };
+    var rows = project.fields.map(function (field) {
+      return '    ("' + field.name + '", "' + toAscii(field.label) + '", '
+        + codes[field.valueType] + ')';
+    }).join(',\n');
+    return [
+      '"""Create the user attributes and read the counted volumes into Visum.',
+      '',
+      'Run from Visum\'s Python console (Scripts > Run script file...), or from an',
+      'external Python with win32com installed. Needs a Visum licence; the person',
+      'collecting the data does not.',
+      '"""',
+      '',
+      'import os',
+      '',
+      'try:                      # inside Visum the object already exists',
+      '    Visum',
+      'except NameError:         # outside Visum, attach to a running instance',
+      '    import win32com.client',
+      '    Visum = win32com.client.Dispatch("Visum.Visum")',
+      '',
+      '# Put the exported file next to this script, or set the full path here.',
+      'ATT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '
+        + '"' + attFileName + '")',
+      '',
+      '# Visum COM ValueType codes: 1 = Int, 2 = Real (Double), 5 = Text.',
+      '# Check them against the COM help of your Visum version if a call fails.',
+      'ATTRIBUTES = [',
+      rows,
+      ']',
+      '',
+      'existing = {a.AttributeID.upper() for a in Visum.Net.Links.Attributes.GetAll}',
+      'for att_id, label, value_type in ATTRIBUTES:',
+      '    if att_id.upper() in existing:',
+      '        print("user attribute %s already exists" % att_id)',
+      '        continue',
+      '    Visum.Net.Links.AddUserDefinedAttribute(att_id, att_id, label, value_type)',
+      '    print("created user attribute %s" % att_id)',
+      '',
+      'if not os.path.isfile(ATT_FILE):',
+      '    raise SystemExit("attribute file not found: %s" % ATT_FILE)',
+      '',
+      'Visum.LoadAttributeFile(ATT_FILE)',
+      'print("read %s" % ATT_FILE)',
+      ''
+    ].join('\n');
+  }
+
+  /**
+   * Serialise the running page together with the project data.
+   *
+   * The app is a single file with inline scripts, so the live DOM already holds
+   * the whole application; embedding the project as JSON next to it produces a
+   * file that reopens exactly where the work stopped.
+   */
+  function toStandaloneHtml(project) {
+    var clone = document.documentElement.cloneNode(true);
+    clone.querySelectorAll('[data-dynamic]').forEach(function (node) {
+      node.innerHTML = '';
+    });
+    var stale = clone.querySelector('#tv-embedded');
+    if (stale) stale.parentNode.removeChild(stale);
+
+    var script = document.createElement('script');
+    script.id = 'tv-embedded';
+    script.type = 'application/json';
+    // Escaping "<" keeps the JSON from ever closing the script element early.
+    script.textContent = JSON.stringify(project.toJSON()).replace(/</g, '\\u003c');
+    clone.querySelector('head').appendChild(script);
+    return '<!DOCTYPE html>\n' + clone.outerHTML;
+  }
+
+  function download(fileName, content, mimeType) {
+    var blob = content instanceof Blob
+      ? content
+      : new Blob([content], { type: mimeType || 'application/octet-stream' });
+    var url = URL.createObjectURL(blob);
+    var anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
+
+  var Exporters = {
+    toAscii: toAscii,
+    slug: slug,
+    toCsv: toCsv,
+    toAtt: toAtt,
+    toGeoJson: toGeoJson,
+    visumScript: visumScript,
+    toStandaloneHtml: toStandaloneHtml,
+    download: download,
+    formatValue: formatValue,
+    rowsOf: rowsOf,
+
+    downloadCsv: function (project, includeEmpty) {
+      // The BOM makes Excel open the semicolon separated file in columns.
+      download(slug(project.name) + '.csv', '﻿' + toCsv(project, {
+        includeEmpty: includeEmpty
+      }), 'text/csv;charset=utf-8');
+    },
+
+    downloadAtt: function (project, includeEmpty) {
+      download(slug(project.name) + '.att', toAtt(project, { includeEmpty: includeEmpty }),
+        'text/plain;charset=us-ascii');
+    },
+
+    downloadGeoJson: function (project) {
+      download(slug(project.name) + '.geojson', toGeoJson(project),
+        'application/geo+json;charset=utf-8');
+    },
+
+    downloadVisumScript: function (project) {
+      download('nacti_do_visumu.py', visumScript(project, slug(project.name) + '.att'),
+        'text/x-python;charset=utf-8');
+    },
+
+    downloadStandalone: function (project) {
+      download(slug(project.name) + '.html', toStandaloneHtml(project),
+        'text/html;charset=utf-8');
+    },
+
+    downloadPng: function (canvas, project) {
+      canvas.toBlob(function (blob) {
+        download(slug(project.name) + '_kartogram.png', blob, 'image/png');
+      }, 'image/png');
+    }
+  };
+
+  TV.exporters = Exporters;
+})(typeof globalThis !== 'undefined'
+  ? (globalThis.TV = globalThis.TV || {})
+  : (this.TV = this.TV || {}));
+
+/* ===== 06-map.js ===== */
+/* Canvas map of link directions.
+ *
+ * Dependency free on purpose: this has to run from a file:// URL on a locked
+ * down machine. Each direction is drawn as its own polyline, offset to the
+ * right hand side of the travel direction, which is how volume plots are read.
+ */
+(function (TV) {
+  'use strict';
+
+  var TILE_SIZE = 256;
+  var COLOR_EMPTY = '#8b96a8';
+  var COLOR_FLAGGED = '#f5a524';
+  var COLOR_SELECTED = '#ffffff';
+  var RAMP = ['#3fb27f', '#8fd14f', '#f2c14e', '#ef8a3c', '#e0503f'];
+
+  function TrafficMap(canvas, options) {
+    var opts = options || {};
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.geographic = opts.geographic !== false;
+    this.project = null;
+    this.items = [];
+    this.byKey = {};
+    this.visible = [];
+    this.selectedKey = null;
+    this.hoverKey = null;
+    this.showLabels = true;
+    this.showBands = true;
+    this.showArrows = true;
+    this.basemapUrl = '';
+    this.basemapEnabled = false;
+    this.valueField = null;
+    this.maxValue = 1;
+    this.filterKeys = null;   // when set, only these directions are drawn
+    this.background = '#0c111b';
+    this.onSelect = opts.onSelect || function () {};
+    this.onHover = opts.onHover || function () {};
+
+    this.centre = [0, 0];
+    this.scale = 1;
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this._tiles = {};
+    this._tileOrder = [];
+    this._frame = null;
+    this._pointers = {};
+    this._pointerCount = 0;
+    this._pinchDistance = 0;
+    this._moved = false;
+
+    this._bindEvents();
+    this.resize();
+    var self = this;
+    window.addEventListener('resize', function () { self.resize(); self.draw(); });
+  }
+
+  TrafficMap.prototype.lonLatToWorld = function (lon, lat) {
+    return TV.projection.wgs84ToWebMercator(lon, lat);
+  };
+
+  /* -- data ---------------------------------------------------------------- */
+
+  TrafficMap.prototype.setProject = function (project) {
+    this.project = project;
+    this.geographic = project.coordMode === 'geographic';
+    this.valueField = project.primaryField();
+    var self = this;
+    this.items = project.links.map(function (link) { return self._prepare(link); });
+    this.byKey = {};
+    this.items.forEach(function (item) { self.byKey[item.key] = item; });
+    this._recomputeMax();
+    return this.items.length;
+  };
+
+  TrafficMap.prototype._prepare = function (link) {
+    var count = link.geom.length;
+    var world = new Float64Array(count * 2);
+    var minx = Infinity;
+    var miny = Infinity;
+    var maxx = -Infinity;
+    var maxy = -Infinity;
+    for (var i = 0; i < count; i += 1) {
+      var x = link.geom[i][0];
+      var y = link.geom[i][1];
+      if (this.geographic) {
+        var p = this.lonLatToWorld(x, y);
+        x = p[0];
+        y = p[1];
+      }
+      world[i * 2] = x;
+      world[i * 2 + 1] = y;
+      if (x < minx) minx = x;
+      if (y < miny) miny = y;
+      if (x > maxx) maxx = x;
+      if (y > maxy) maxy = y;
+    }
+    return {
+      key: link.key,
+      link: link,
+      world: world,
+      bbox: [minx, miny, maxx, maxy],
+      value: this.project ? this.project.numericValue(link.key, this.valueField) : null,
+      status: this.project ? this.project.entry(link.key).status : 'empty',
+      screen: null,
+      width: 3
+    };
+  };
+
+  /** Pick up a value that changed without rebuilding the whole network. */
+  TrafficMap.prototype.refresh = function (key) {
+    var item = this.byKey[key];
+    if (!item || !this.project) return;
+    item.value = this.project.numericValue(key, this.valueField);
+    item.status = this.project.entry(key).status;
+    this._recomputeMax();
+    this.draw();
+  };
+
+  TrafficMap.prototype.setValueField = function (name) {
+    this.valueField = name;
+    var self = this;
+    this.items.forEach(function (item) {
+      item.value = self.project.numericValue(item.key, name);
+    });
+    this._recomputeMax();
+    this.draw();
+  };
+
+  TrafficMap.prototype._recomputeMax = function () {
+    var max = 1;
+    for (var i = 0; i < this.items.length; i += 1) {
+      var value = this.items[i].value;
+      if (value !== null && value > max) max = value;
+    }
+    this.maxValue = max;
+  };
+
+  /* -- view ---------------------------------------------------------------- */
+
+  TrafficMap.prototype.resize = function () {
+    var rect = this.canvas.getBoundingClientRect();
+    this.width = Math.max(1, Math.round(rect.width));
+    this.height = Math.max(1, Math.round(rect.height));
+    this.canvas.width = Math.round(this.width * this.dpr);
+    this.canvas.height = Math.round(this.height * this.dpr);
+    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+  };
+
+  TrafficMap.prototype.fitBounds = function (bounds, padding) {
+    if (!bounds) return;
+    var minx = bounds[0];
+    var miny = bounds[1];
+    var maxx = bounds[2];
+    var maxy = bounds[3];
+    if (this.geographic) {
+      var a = this.lonLatToWorld(minx, miny);
+      var b = this.lonLatToWorld(maxx, maxy);
+      minx = Math.min(a[0], b[0]);
+      miny = Math.min(a[1], b[1]);
+      maxx = Math.max(a[0], b[0]);
+      maxy = Math.max(a[1], b[1]);
+    }
+    var pad = padding === undefined ? 48 : padding;
+    this.centre = [(minx + maxx) / 2, (miny + maxy) / 2];
+    this.scale = Math.min(
+      (this.width - 2 * pad) / Math.max(maxx - minx, 1e-6),
+      (this.height - 2 * pad) / Math.max(maxy - miny, 1e-6)
+    );
+    if (!isFinite(this.scale) || this.scale <= 0) this.scale = 1;
+    this.draw();
+  };
+
+  TrafficMap.prototype.toScreen = function (wx, wy) {
+    return [
+      (wx - this.centre[0]) * this.scale + this.width / 2,
+      this.height / 2 - (wy - this.centre[1]) * this.scale
+    ];
+  };
+
+  TrafficMap.prototype.toWorld = function (sx, sy) {
+    return [
+      (sx - this.width / 2) / this.scale + this.centre[0],
+      this.centre[1] - (sy - this.height / 2) / this.scale
+    ];
+  };
+
+  TrafficMap.prototype.zoomBy = function (factor, anchorX, anchorY) {
+    var ax = anchorX === undefined ? this.width / 2 : anchorX;
+    var ay = anchorY === undefined ? this.height / 2 : anchorY;
+    var before = this.toWorld(ax, ay);
+    this.scale = Math.max(1e-9, Math.min(this.scale * factor, 1e6));
+    var after = this.toWorld(ax, ay);
+    this.centre = [
+      this.centre[0] + (before[0] - after[0]),
+      this.centre[1] + (before[1] - after[1])
+    ];
+    this.draw();
+  };
+
+  TrafficMap.prototype.centreOnKey = function (key) {
+    var item = this.byKey[key];
+    if (!item) return;
+    var index = Math.floor((item.world.length / 2) / 2);
+    this.centre = [item.world[index * 2], item.world[index * 2 + 1]];
+    this.draw();
+  };
+
+  /** Restrict drawing and hit testing to a set of keys, or pass null to clear. */
+  TrafficMap.prototype.setFilter = function (keys) {
+    this.filterKeys = keys;
+    this.draw();
+  };
+
+  TrafficMap.prototype.setBasemap = function (url, enabled) {
+    this.basemapUrl = url || '';
+    this.basemapEnabled = !!enabled && !!url && this.geographic;
+    this.draw();
+  };
+
+  /* -- drawing ------------------------------------------------------------- */
+
+  TrafficMap.prototype.draw = function () {
+    if (this._frame) return;
+    var self = this;
+    this._frame = requestAnimationFrame(function () {
+      self._frame = null;
+      self._render();
+    });
+  };
+
+  TrafficMap.prototype._render = function () {
+    var ctx = this.ctx;
+    ctx.clearRect(0, 0, this.width, this.height);
+    ctx.fillStyle = this.background;
+    ctx.fillRect(0, 0, this.width, this.height);
+    if (this.basemapEnabled) this._drawTiles();
+    this._drawLinks();
+  };
+
+  TrafficMap.prototype._drawTiles = function () {
+    var mercHalf = TV.projection.MERC_HALF;
+    var z = Math.round(Math.log(2 * mercHalf * this.scale / TILE_SIZE) / Math.LN2);
+    z = Math.max(0, Math.min(19, z));
+    var n = Math.pow(2, z);
+    var tileWorld = (2 * mercHalf) / n;
+    var topLeft = this.toWorld(0, 0);
+    var bottomRight = this.toWorld(this.width, this.height);
+    var x0 = Math.floor((topLeft[0] + mercHalf) / tileWorld);
+    var x1 = Math.ceil((bottomRight[0] + mercHalf) / tileWorld);
+    var y0 = Math.floor((mercHalf - topLeft[1]) / tileWorld);
+    var y1 = Math.ceil((mercHalf - bottomRight[1]) / tileWorld);
+    var size = tileWorld * this.scale;
+
+    for (var ty = y0; ty < y1; ty += 1) {
+      if (ty < 0 || ty >= n) continue;
+      for (var tx = x0; tx < x1; tx += 1) {
+        var wrapped = ((tx % n) + n) % n;
+        var image = this._tile(z, wrapped, ty);
+        if (!image || !image.complete || !image.naturalWidth) continue;
+        var at = this.toScreen(tx * tileWorld - mercHalf, mercHalf - ty * tileWorld);
+        this.ctx.drawImage(image, at[0], at[1], size + 1, size + 1);
+      }
+    }
+  };
+
+  TrafficMap.prototype._tile = function (z, x, y) {
+    var id = z + '/' + x + '/' + y;
+    if (this._tiles[id]) return this._tiles[id];
+    if (this._tileOrder.length > 400) {
+      var drop = this._tileOrder.splice(0, 100);
+      var self0 = this;
+      drop.forEach(function (key) { delete self0._tiles[key]; });
+    }
+    var image = new Image();
+    image.crossOrigin = 'anonymous';
+    var self = this;
+    image.onload = function () { self.draw(); };
+    image.onerror = function () { image.failed = true; };
+    image.src = this.basemapUrl
+      .replace('{z}', z).replace('{x}', x).replace('{y}', y)
+      .replace('{s}', 'abc'[(x + y) % 3]);
+    this._tiles[id] = image;
+    this._tileOrder.push(id);
+    return image;
+  };
+
+  TrafficMap.prototype._widthOf = function (item) {
+    if (!this.showBands || item.value === null) return 3;
+    return 2.5 + 15 * Math.sqrt(Math.max(0, item.value) / this.maxValue);
+  };
+
+  TrafficMap.prototype._colourOf = function (item) {
+    if (item.status === 'flagged') return COLOR_FLAGGED;
+    if (item.value === null) return COLOR_EMPTY;
+    var ratio = Math.max(0, Math.min(1, item.value / this.maxValue));
+    return RAMP[Math.min(RAMP.length - 1, Math.floor(ratio * RAMP.length))];
+  };
+
+  /** Project a link and offset it to the right of the travel direction. */
+  TrafficMap.prototype._screenPath = function (item, offset) {
+    var world = item.world;
+    var count = world.length / 2;
+    var points = new Array(count);
+    for (var i = 0; i < count; i += 1) {
+      points[i] = this.toScreen(world[i * 2], world[i * 2 + 1]);
+    }
+    if (!offset) return points;
+    var out = new Array(count);
+    for (var j = 0; j < count; j += 1) {
+      var nx = 0;
+      var ny = 0;
+      // Average the right hand normals of the adjacent segments.
+      for (var s = 0; s < 2; s += 1) {
+        var a = s === 0 ? j - 1 : j;
+        var b = s === 0 ? j : j + 1;
+        if (a < 0 || b >= count) continue;
+        var dx = points[b][0] - points[a][0];
+        var dy = points[b][1] - points[a][1];
+        var len = Math.sqrt(dx * dx + dy * dy);
+        if (len < 1e-9) continue;
+        // Screen y points down, so rotating the direction by +90 degrees,
+        // (x, y) -> (-y, x), gives the right hand side of travel.
+        nx += -dy / len;
+        ny += dx / len;
+      }
+      var norm = Math.sqrt(nx * nx + ny * ny);
+      out[j] = norm < 1e-9
+        ? points[j]
+        : [points[j][0] + (nx / norm) * offset, points[j][1] + (ny / norm) * offset];
+    }
+    return out;
+  };
+
+  TrafficMap.prototype._drawLinks = function () {
+    var ctx = this.ctx;
+    var a = this.toWorld(0, this.height);
+    var b = this.toWorld(this.width, 0);
+    var margin = 200 / this.scale;
+    var vminx = a[0] - margin;
+    var vminy = a[1] - margin;
+    var vmaxx = b[0] + margin;
+    var vmaxy = b[1] + margin;
+
+    var visible = [];
+    for (var i = 0; i < this.items.length; i += 1) {
+      var item = this.items[i];
+      if (this.filterKeys && !this.filterKeys[item.key]) {
+        item.screen = null;
+        continue;
+      }
+      var box = item.bbox;
+      if (box[2] < vminx || box[0] > vmaxx || box[3] < vminy || box[1] > vmaxy) {
+        item.screen = null;
+        continue;
+      }
+      item.width = this._widthOf(item);
+      item.screen = this._screenPath(item, item.width / 2 + 1.5);
+      visible.push(item);
+    }
+    this.visible = visible;
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    // Two passes so filled directions stay readable over the grey ones.
+    for (var pass = 0; pass < 2; pass += 1) {
+      for (var v = 0; v < visible.length; v += 1) {
+        var current = visible[v];
+        var filled = current.value !== null || current.status === 'flagged';
+        if ((pass === 0) === filled) continue;
+        this._strokePath(current.screen, this._colourOf(current), current.width);
+      }
+    }
+
+    if (this.showArrows) {
+      for (var w = 0; w < visible.length; w += 1) this._drawArrow(visible[w]);
+    }
+
+    // Highlights go on before the labels so a selected direction never paints
+    // over its own value.
+    var keys = [this.hoverKey, this.selectedKey];
+    for (var k = 0; k < keys.length; k += 1) {
+      var picked = keys[k] && this.byKey[keys[k]];
+      if (!picked || !picked.screen) continue;
+      this._strokePath(picked.screen, COLOR_SELECTED, picked.width + 4, 0.9);
+      this._strokePath(picked.screen, this._colourOf(picked), picked.width);
+      this._drawArrow(picked);
+    }
+    if (this.showLabels) this._drawLabels(visible);
+  };
+
+  TrafficMap.prototype._strokePath = function (points, colour, width, alpha) {
+    if (!points || points.length < 2) return;
+    var ctx = this.ctx;
+    ctx.globalAlpha = alpha === undefined ? 1 : alpha;
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(points[0][0], points[0][1]);
+    for (var i = 1; i < points.length; i += 1) ctx.lineTo(points[i][0], points[i][1]);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  };
+
+  TrafficMap.prototype._drawArrow = function (item) {
+    var points = item.screen;
+    if (!points || points.length < 2) return;
+    var end = points[points.length - 1];
+    var previous = points[points.length - 2];
+    var dx = end[0] - previous[0];
+    var dy = end[1] - previous[1];
+    var len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 12) return;
+    var ux = dx / len;
+    var uy = dy / len;
+    // Sit the head a little before the node so arrows do not pile up there.
+    var tipX = end[0] - ux * 6;
+    var tipY = end[1] - uy * 6;
+    var size = Math.max(5, Math.min(9, item.width + 3));
+    var ctx = this.ctx;
+    ctx.fillStyle = this._colourOf(item);
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(tipX - ux * size - uy * size * 0.5, tipY - uy * size + ux * size * 0.5);
+    ctx.lineTo(tipX - ux * size + uy * size * 0.5, tipY - uy * size - ux * size * 0.5);
+    ctx.closePath();
+    ctx.fill();
+  };
+
+  function overlaps(a, b) {
+    return !(a[2] < b[0] || a[0] > b[2] || a[3] < b[1] || a[1] > b[3]);
+  }
+
+  TrafficMap.prototype._drawLabels = function (visible) {
+    var ctx = this.ctx;
+    ctx.font = '600 11px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(8,12,20,.85)';
+
+    // Labels of the two directions of one link would otherwise land on top of
+    // each other, so each is pushed out to its own side and anything that still
+    // collides is dropped rather than drawn illegibly.
+    var placed = [];
+    var drawn = 0;
+    for (var i = 0; i < visible.length && drawn < 600; i += 1) {
+      var item = visible[i];
+      if (item.value === null) continue;
+      var points = item.screen;
+      if (!points || points.length < 2) continue;
+      var start = points[0];
+      var end = points[points.length - 1];
+      if (Math.sqrt(Math.pow(end[0] - start[0], 2) + Math.pow(end[1] - start[1], 2)) < 34) {
+        continue;
+      }
+      var index = Math.max(1, Math.floor(points.length / 2));
+      var a = points[index - 1];
+      var b = points[index];
+      var dx = b[0] - a[0];
+      var dy = b[1] - a[1];
+      var len = Math.sqrt(dx * dx + dy * dy) || 1;
+      var push = item.width / 2 + 8;
+      var cx = (a[0] + b[0]) / 2 + (-dy / len) * push;
+      var cy = (a[1] + b[1]) / 2 + (dx / len) * push;
+
+      var text = item.value.toLocaleString('cs-CZ');
+      var half = ctx.measureText(text).width / 2 + 2;
+      var box = [cx - half, cy - 7, cx + half, cy + 7];
+      var collides = false;
+      for (var p = 0; p < placed.length; p += 1) {
+        if (overlaps(box, placed[p])) { collides = true; break; }
+      }
+      if (collides) continue;
+      placed.push(box);
+      ctx.strokeText(text, cx, cy);
+      ctx.fillStyle = '#eef3fa';
+      ctx.fillText(text, cx, cy);
+      drawn += 1;
+    }
+  };
+
+  /* -- PNG export ---------------------------------------------------------- */
+
+  /**
+   * Render the current view into a standalone canvas with a title strip and a
+   * legend, for pasting into a report.
+   */
+  TrafficMap.prototype.exportImage = function (options) {
+    var settings = options || {};
+    var scale = settings.scale || 2;
+    var headerHeight = 54;
+    var footerHeight = 34;
+    var out = document.createElement('canvas');
+    out.width = Math.round(this.width * scale);
+    out.height = Math.round((this.height + headerHeight + footerHeight) * scale);
+    var ctx = out.getContext('2d');
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+
+    ctx.fillStyle = this.background;
+    ctx.fillRect(0, 0, this.width, this.height + headerHeight + footerHeight);
+
+    // Reuse the live renderer by pointing it at the export canvas.
+    var savedCtx = this.ctx;
+    var savedDpr = this.dpr;
+    this.ctx = ctx;
+    ctx.save();
+    ctx.translate(0, headerHeight);
+    ctx.beginPath();
+    ctx.rect(0, 0, this.width, this.height);
+    ctx.clip();
+    this._render();
+    ctx.restore();
+    this.ctx = savedCtx;
+    this.dpr = savedDpr;
+
+    ctx.fillStyle = '#161d2c';
+    ctx.fillRect(0, 0, this.width, headerHeight);
+    ctx.fillRect(0, this.height + headerHeight, this.width, footerHeight);
+
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#e6ebf2';
+    ctx.font = '600 17px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText(settings.title || '', 16, 21);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '12px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText(settings.subtitle || '', 16, 40);
+
+    // Legend: grey for untouched, then the low to high ramp.
+    var x = 16;
+    var y = this.height + headerHeight + footerHeight / 2;
+    function swatch(colour, label) {
+      ctx.fillStyle = colour;
+      ctx.fillRect(x, y - 5, 10, 10);
+      x += 14;
+      if (label) {
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '12px "Segoe UI", system-ui, sans-serif';
+        ctx.fillText(label, x, y);
+        x += ctx.measureText(label).width + 14;
+      }
+    }
+    swatch(COLOR_EMPTY, 'nevyplněno');
+    RAMP.forEach(function (colour) { swatch(colour, null); });
+    x += 4;
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('nízká → vysoká intenzita', x, y);
+    x += ctx.measureText('nízká → vysoká intenzita').width + 14;
+    swatch(COLOR_FLAGGED, 'k prověření');
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText(settings.footerRight || '', this.width - 16, y);
+    return out;
+  };
+
+  /* -- interaction --------------------------------------------------------- */
+
+  TrafficMap.prototype.pick = function (sx, sy) {
+    var best = null;
+    var bestDistance = 9;
+    for (var i = 0; i < this.visible.length; i += 1) {
+      var item = this.visible[i];
+      var points = item.screen;
+      if (!points) continue;
+      var tolerance = Math.max(9, item.width / 2 + 3);
+      for (var j = 1; j < points.length; j += 1) {
+        var d = distanceToSegment(sx, sy, points[j - 1], points[j]);
+        if (d < tolerance && d < bestDistance) {
+          bestDistance = d;
+          best = item;
+        }
+      }
+    }
+    return best;
+  };
+
+  TrafficMap.prototype.select = function (key, centre) {
+    this.selectedKey = key;
+    if (centre && key) this.centreOnKey(key);
+    this.draw();
+  };
+
+  TrafficMap.prototype._bindEvents = function () {
+    var canvas = this.canvas;
+    var self = this;
+
+    canvas.addEventListener('pointerdown', function (event) {
+      canvas.setPointerCapture(event.pointerId);
+      self._pointers[event.pointerId] = [event.offsetX, event.offsetY];
+      self._pointerCount += 1;
+      self._moved = false;
+      self._dragFrom = [event.offsetX, event.offsetY];
+      self._dragCentre = self.centre.slice();
+      canvas.classList.add('dragging');
+    });
+
+    canvas.addEventListener('pointermove', function (event) {
+      if (self._pointers[event.pointerId] === undefined) {
+        var hit = self.pick(event.offsetX, event.offsetY);
+        var key = hit ? hit.key : null;
+        if (key !== self.hoverKey) {
+          self.hoverKey = key;
+          canvas.style.cursor = hit ? 'pointer' : '';
+          self.onHover(hit ? hit.link : null);
+          self.draw();
+        }
+        return;
+      }
+      self._pointers[event.pointerId] = [event.offsetX, event.offsetY];
+      if (self._pointerCount >= 2) { self._handlePinch(); return; }
+      var dx = event.offsetX - self._dragFrom[0];
+      var dy = event.offsetY - self._dragFrom[1];
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) self._moved = true;
+      self.centre = [
+        self._dragCentre[0] - dx / self.scale,
+        self._dragCentre[1] + dy / self.scale
+      ];
+      self.draw();
+    });
+
+    function release(event) {
+      if (self._pointers[event.pointerId] === undefined) return;
+      delete self._pointers[event.pointerId];
+      self._pointerCount = Math.max(0, self._pointerCount - 1);
+      self._pinchDistance = 0;
+      canvas.classList.remove('dragging');
+      if (!self._moved) {
+        var hit = self.pick(event.offsetX, event.offsetY);
+        self.selectedKey = hit ? hit.key : null;
+        self.draw();
+        self.onSelect(hit ? hit.link : null);
+      }
+    }
+    canvas.addEventListener('pointerup', release);
+    canvas.addEventListener('pointercancel', function (event) {
+      delete self._pointers[event.pointerId];
+      self._pointerCount = Math.max(0, self._pointerCount - 1);
+      canvas.classList.remove('dragging');
+    });
+
+    canvas.addEventListener('wheel', function (event) {
+      event.preventDefault();
+      self.zoomBy(Math.pow(1.0015, -event.deltaY), event.offsetX, event.offsetY);
+    }, { passive: false });
+
+    canvas.addEventListener('dblclick', function (event) {
+      self.zoomBy(2, event.offsetX, event.offsetY);
+    });
+
+    canvas.addEventListener('contextmenu', function (event) { event.preventDefault(); });
+  };
+
+  TrafficMap.prototype._handlePinch = function () {
+    var self = this;
+    var points = Object.keys(this._pointers).map(function (id) { return self._pointers[id]; });
+    if (points.length < 2) return;
+    var distance = Math.sqrt(
+      Math.pow(points[0][0] - points[1][0], 2) + Math.pow(points[0][1] - points[1][1], 2)
+    );
+    var cx = (points[0][0] + points[1][0]) / 2;
+    var cy = (points[0][1] + points[1][1]) / 2;
+    if (this._pinchDistance > 0 && distance > 0) {
+      this.zoomBy(distance / this._pinchDistance, cx, cy);
+    }
+    this._pinchDistance = distance;
+    this._moved = true;
+  };
+
+  function distanceToSegment(px, py, a, b) {
+    var dx = b[0] - a[0];
+    var dy = b[1] - a[1];
+    var lengthSquared = dx * dx + dy * dy;
+    if (lengthSquared < 1e-12) {
+      return Math.sqrt(Math.pow(px - a[0], 2) + Math.pow(py - a[1], 2));
+    }
+    var t = ((px - a[0]) * dx + (py - a[1]) * dy) / lengthSquared;
+    t = Math.max(0, Math.min(1, t));
+    return Math.sqrt(
+      Math.pow(px - (a[0] + t * dx), 2) + Math.pow(py - (a[1] + t * dy), 2)
+    );
+  }
+
+  TV.TrafficMap = TrafficMap;
+  TV.mapColours = {
+    EMPTY: COLOR_EMPTY, FLAGGED: COLOR_FLAGGED, RAMP: RAMP
+  };
+})(typeof globalThis !== 'undefined'
+  ? (globalThis.TV = globalThis.TV || {})
+  : (this.TV = this.TV || {}));
+
+/* ===== 07-ui.js ===== */
+/* Application wiring: loading files, the entry form, exports and autosave. */
+(function (TV) {
+  'use strict';
+
+  var BASEMAP_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  var BASEMAP_ATTRIBUTION =
+    '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">'
+    + 'OpenStreetMap</a> přispěvatelé';
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  var state = {
+    project: null,
+    map: null,
+    selected: null,
+    pendingImport: null,
+    fieldRows: 0
+  };
+
+  /* ---------- small helpers ---------- */
+
+  var toastTimer = null;
+  function toast(message, isError) {
+    var element = $('toast');
+    element.textContent = message;
+    element.classList.toggle('error', !!isError);
+    element.classList.remove('hidden');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      element.classList.add('hidden');
+    }, isError ? 7000 : 2200);
+  }
+
+  function message(text, kind) {
+    var box = $('start-message');
+    if (!text) { box.innerHTML = ''; return; }
+    box.innerHTML = '';
+    var note = document.createElement('div');
+    note.className = 'note' + (kind ? ' ' + kind : '');
+    note.textContent = text;
+    box.appendChild(note);
+  }
+
+  function formatTime(iso) {
+    if (!iso) return '';
+    var date = new Date(iso);
+    if (isNaN(date.getTime())) return iso;
+    return date.toLocaleString('cs-CZ', {
+      day: 'numeric', month: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  }
+
+  function readFile(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(reader.result); };
+      reader.onerror = function () { reject(reader.error); };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  /* ---------- loading files ---------- */
+
+  /** Pull the embedded project out of a previously saved HTML file. */
+  function extractEmbedded(text) {
+    var match = /<script[^>]+id=["']tv-embedded["'][^>]*>([\s\S]*?)<\/script>/i.exec(text);
+    if (!match) return null;
+    return JSON.parse(match[1]);
+  }
+
+  function handleFile(file) {
+    message('');
+    return readFile(file).then(function (buffer) {
+      var text = TV.parser.decodeBuffer(buffer);
+      var suffix = (file.name.split('.').pop() || '').toLowerCase();
+
+      if (suffix === 'html' || suffix === 'htm') {
+        var embedded = extractEmbedded(text);
+        if (!embedded) throw new Error('V tomto HTML souboru není uložená žádná práce.');
+        openProject(TV.Project.fromJSON(embedded));
+        return;
+      }
+      if (suffix === 'json') {
+        var data = JSON.parse(text);
+        if (data && data.format === 'trafficvolumes/1') {
+          openProject(TV.Project.fromJSON(data));
+          return;
+        }
+        // Otherwise it is probably GeoJSON, so fall through to the importer.
+      }
+      var imported = TV.parser.importNetwork(file.name, text);
+      showSetup(imported, file.name);
+    }).catch(function (error) {
+      message(error.message || String(error), 'error');
+    });
+  }
+
+  /* ---------- setup screen ---------- */
+
+  function showSetup(imported, fileName) {
+    state.pendingImport = { imported: imported, fileName: fileName };
+
+    var select = $('setup-crs');
+    select.innerHTML = '';
+    var detected = TV.projection.detectCrs(imported.links.slice(0, 500).map(function (link) {
+      return link.geom[0];
+    }));
+    TV.projection.CRS_LIST.forEach(function (crs) {
+      var option = document.createElement('option');
+      option.value = crs.id;
+      option.textContent = crs.id === 'auto'
+        ? crs.label + ' (rozpoznáno: ' + detected + ')'
+        : crs.label;
+      select.appendChild(option);
+    });
+    select.value = 'auto';
+
+    $('setup-name').value = fileName.replace(/\.[^.]+$/, '');
+    $('setup-summary').textContent =
+      imported.links.length + ' směrů linků · geometrie z ' + imported.geometrySource
+      + (imported.warnings.length ? ' · ' + imported.warnings.join(' ') : '');
+
+    $('setup-fields').innerHTML = '';
+    state.fieldRows = 0;
+    TV.projectHelpers.DEFAULT_FIELDS.forEach(addFieldRow);
+
+    $('setup').classList.remove('hidden');
+    $('setup').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function addFieldRow(field) {
+    var data = field || { name: '', label: '', valueType: 'int', unit: '' };
+    var row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML =
+      '<label class="field"><span>Název atributu</span>'
+      + '<input type="text" data-role="name" placeholder="VOL_MANUAL"></label>'
+      + '<label class="field"><span>Popisek</span>'
+      + '<input type="text" data-role="label" placeholder="Intenzita"></label>'
+      + '<label class="field shrink"><span>Typ</span><select data-role="type">'
+      + '<option value="int">celé číslo</option>'
+      + '<option value="float">desetinné</option>'
+      + '<option value="text">text</option></select></label>'
+      + '<label class="field shrink"><span>Jednotka</span>'
+      + '<input type="text" data-role="unit" placeholder="voz/den"></label>';
+
+    row.querySelector('[data-role=name]').value = data.name;
+    row.querySelector('[data-role=label]').value = data.label;
+    row.querySelector('[data-role=type]').value = data.valueType;
+    row.querySelector('[data-role=unit]').value = data.unit;
+
+    var remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'icon';
+    remove.textContent = '✕';
+    remove.title = 'Odebrat veličinu';
+    remove.addEventListener('click', function () {
+      if ($('setup-fields').children.length <= 1) {
+        message('Projekt musí mít alespoň jednu veličinu.', 'warn');
+        return;
+      }
+      row.remove();
+    });
+    row.appendChild(remove);
+    $('setup-fields').appendChild(row);
+    state.fieldRows += 1;
+  }
+
+  function collectFields() {
+    var fields = [];
+    var rows = $('setup-fields').querySelectorAll('.row');
+    for (var i = 0; i < rows.length; i += 1) {
+      var row = rows[i];
+      var name = row.querySelector('[data-role=name]').value.trim();
+      if (!name) continue;
+      fields.push({
+        name: name,
+        label: row.querySelector('[data-role=label]').value.trim(),
+        valueType: row.querySelector('[data-role=type]').value,
+        unit: row.querySelector('[data-role=unit]').value.trim()
+      });
+    }
+    if (!fields.length) throw new Error('Zadejte alespoň jednu veličinu.');
+    var seen = {};
+    fields.forEach(function (field) {
+      var key = field.name.toUpperCase();
+      if (seen[key]) throw new Error('Veličina "' + key + '" je uvedená dvakrát.');
+      seen[key] = true;
+    });
+    return fields;
+  }
+
+  function createProject() {
+    try {
+      var fields = collectFields();
+      var project = TV.Project.fromImport(state.pendingImport.imported, {
+        name: $('setup-name').value.trim() || 'Sčítání',
+        crs: $('setup-crs').value,
+        source: state.pendingImport.fileName,
+        fields: fields
+      });
+      state.pendingImport = null;
+      $('setup').classList.add('hidden');
+      openProject(project);
+    } catch (error) {
+      message(error.message || String(error), 'error');
+    }
+  }
+
+  /* ---------- recent sessions ---------- */
+
+  function renderRecent() {
+    return TV.autosave.list().then(function (rows) {
+      var container = $('recent');
+      container.innerHTML = '';
+      if (!rows.length) {
+        $('recent-block').classList.add('hidden');
+        return;
+      }
+      $('recent-block').classList.remove('hidden');
+      rows.slice(0, 6).forEach(function (row) {
+        var element = document.createElement('div');
+        element.className = 'recent-row';
+        var info = document.createElement('div');
+        info.className = 'grow';
+        info.innerHTML = '<b></b><span class="muted small"></span>';
+        info.querySelector('b').textContent = row.name || 'Projekt';
+        info.querySelector('span').textContent =
+          row.total + ' směrů · uloženo ' + formatTime(row.savedAt);
+        element.appendChild(info);
+
+        var open = document.createElement('button');
+        open.type = 'button';
+        open.className = 'primary';
+        open.textContent = 'Pokračovat';
+        open.addEventListener('click', function () {
+          TV.autosave.load(row.id).then(function (data) {
+            if (!data) { message('Uloženou práci se nepodařilo načíst.', 'error'); return; }
+            openProject(TV.Project.fromJSON(data));
+          }).catch(function (error) { message(String(error), 'error'); });
+        });
+        element.appendChild(open);
+
+        var drop = document.createElement('button');
+        drop.type = 'button';
+        drop.className = 'icon';
+        drop.textContent = '✕';
+        drop.title = 'Odstranit z prohlížeče';
+        drop.addEventListener('click', function () {
+          if (!window.confirm('Opravdu smazat uloženou práci "' + row.name + '"?')) return;
+          TV.autosave.remove(row.id).then(renderRecent);
+        });
+        element.appendChild(drop);
+        container.appendChild(element);
+      });
+    });
+  }
+
+  /* ---------- work screen ---------- */
+
+  function openProject(project) {
+    TV.fileSink.forget();
+    $('btn-file-sink').textContent = 'Průběžně ukládat do souboru…';
+    state.project = project;
+    state.selected = null;
+    $('start').classList.add('hidden');
+    $('work').classList.remove('hidden');
+
+    document.title = project.name + ' — TrafficVolumes';
+    $('project-name').textContent = project.name;
+    $('project-meta').textContent = [
+      project.crs === 'LOCAL' ? 'místní souřadnice' : project.crs,
+      project.source,
+      project.links.length + ' směrů'
+    ].filter(Boolean).join(' · ');
+    $('surveyor').value = project.surveyor || '';
+
+    if (!state.map) {
+      state.map = new TV.TrafficMap($('map'), {
+        onSelect: function (link) {
+          if (link) showLink(link.key);
+          else hideDetail();
+        }
+      });
+    }
+    state.map.setProject(project);
+    state.map.resize();
+    state.map.fitBounds(project.bounds());
+
+    $('basemap-toggle').classList.toggle('hidden', project.coordMode !== 'geographic');
+    $('attribution').innerHTML = '';
+    $('show-basemap').checked = false;
+    state.map.setBasemap(BASEMAP_URL, false);
+
+    buildValueInputs();
+    renderLegend();
+    hideDetail();
+    updateProgress();
+    updateSaveState();
+    save();
+  }
+
+  function buildValueInputs() {
+    var container = $('value-inputs');
+    container.innerHTML = '';
+    state.project.fields.forEach(function (field) {
+      var label = document.createElement('label');
+      label.className = 'field';
+      var caption = document.createElement('span');
+      caption.textContent = field.label + (field.unit ? ' [' + field.unit + ']' : '');
+      var input = document.createElement('input');
+      input.id = 'value-' + field.name;
+      input.dataset.field = field.name;
+      input.autocomplete = 'off';
+      input.type = 'text';
+      if (field.valueType !== 'text') {
+        // Deliberately not type="number": that silently discards "12,5" typed
+        // with a Czech decimal comma, and its native validation bubble would
+        // pre-empt the app's own, clearer message. Values go through the
+        // project's own check instead, which also accepts "12 500".
+        input.inputMode = field.valueType === 'int' ? 'numeric' : 'decimal';
+        input.placeholder = field.valueType === 'int' ? 'např. 12500' : 'např. 12,5';
+      }
+      label.appendChild(caption);
+      label.appendChild(input);
+      container.appendChild(label);
+    });
+  }
+
+  function renderLegend() {
+    var colours = TV.mapColours;
+    var html = '<span class="swatch" style="background:' + colours.EMPTY
+      + '"></span>nevyplněno · ';
+    colours.RAMP.forEach(function (colour) {
+      html += '<span class="swatch" style="background:' + colour + '"></span>';
+    });
+    html += ' nízká → vysoká · <span class="swatch" style="background:' + colours.FLAGGED
+      + '"></span>k prověření';
+    $('legend').innerHTML = html;
+  }
+
+  function hideDetail() {
+    state.selected = null;
+    $('detail').classList.add('hidden');
+    $('placeholder').classList.remove('hidden');
+  }
+
+  function showLink(key, options) {
+    var settings = options || {};
+    var project = state.project;
+    var link = project.byKey[key];
+    if (!link) return;
+    state.selected = link;
+    $('placeholder').classList.add('hidden');
+    $('detail').classList.remove('hidden');
+
+    var entry = project.entry(key);
+    $('detail-title').textContent =
+      'Link ' + link.linkNo + '  (' + link.fromNode + ' → ' + link.toNode + ')';
+    var bits = [];
+    if (link.name) bits.push(link.name);
+    if (link.typeNo) bits.push('typ ' + link.typeNo);
+    if (link.length !== null && link.length !== undefined) bits.push(link.length + ' km');
+    if (link.capacity) bits.push('kapacita ' + link.capacity);
+    $('detail-sub').textContent = bits.join(' · ');
+
+    project.fields.forEach(function (field) {
+      var input = $('value-' + field.name);
+      if (input) input.value = entry.values[field.name] === undefined ? '' : entry.values[field.name];
+    });
+    $('note').value = entry.note || '';
+    $('flagged').checked = entry.status === 'flagged';
+
+    var reverse = project.reverseKey(key);
+    $('btn-opposite').disabled = !reverse;
+    $('btn-copy').disabled = !reverse;
+
+    var attrs = $('attrs-list');
+    attrs.innerHTML = '';
+    Object.keys(link.attrs || {}).forEach(function (name) {
+      var dt = document.createElement('dt');
+      dt.textContent = name;
+      var dd = document.createElement('dd');
+      dd.textContent = link.attrs[name];
+      attrs.appendChild(dt);
+      attrs.appendChild(dd);
+    });
+
+    renderHistory(key);
+    state.map.select(key, !!settings.centre);
+    if (settings.focus !== false) {
+      var first = $('value-inputs').querySelector('input');
+      if (first) { first.focus(); first.select(); }
+    }
+  }
+
+  function renderHistory(key) {
+    var list = $('history-list');
+    list.innerHTML = '';
+    var rows = state.project.history.filter(function (row) {
+      return row.key === key;
+    }).slice(-25).reverse();
+    if (!rows.length) {
+      list.innerHTML = '<li>zatím bez změn</li>';
+      return;
+    }
+    rows.forEach(function (row) {
+      var item = document.createElement('li');
+      item.textContent = formatTime(row.ts) + ' — ' + row.field + ': '
+        + (row.from === null ? '—' : row.from) + ' → ' + (row.to === null ? '—' : row.to)
+        + (row.surveyor ? ' (' + row.surveyor + ')' : '');
+      list.appendChild(item);
+    });
+  }
+
+  function collectValues() {
+    var values = {};
+    state.project.fields.forEach(function (field) {
+      var input = $('value-' + field.name);
+      values[field.name] = input ? input.value : '';
+    });
+    return values;
+  }
+
+  function updateProgress() {
+    var stats = state.project.stats();
+    var percent = stats.total ? Math.round((stats.filled / stats.total) * 100) : 0;
+    $('progress-fill').style.width = percent + '%';
+    $('progress-text').textContent =
+      stats.filled + ' z ' + stats.total + ' směrů vyplněno (' + percent + ' %)'
+      + (stats.flagged ? ' · ' + stats.flagged + ' označeno' : '');
+  }
+
+  function updateSaveState(error) {
+    var element = $('save-state');
+    var sink = TV.fileSink;
+    var parts = [];
+    var failed = !!error || !!sink.lastError;
+
+    if (error) {
+      parts.push('Ukládání do prohlížeče selhalo: ' + error.message);
+    } else if (TV.autosave.lastSavedAt) {
+      parts.push('V prohlížeči uloženo ' + formatTime(TV.autosave.lastSavedAt));
+    } else {
+      parts.push('Automatické ukládání připraveno');
+    }
+
+    if (sink.handle) {
+      if (sink.lastError) {
+        parts.push('zápis do ' + sink.fileName + ' selhal: ' + sink.lastError.message);
+      } else if (sink.lastWrittenAt) {
+        parts.push('soubor ' + sink.fileName + ' aktualizován ' + formatTime(sink.lastWrittenAt));
+      } else {
+        parts.push('soubor ' + sink.fileName + ' připraven');
+      }
+    }
+    if (failed) parts.push('uložte práci tlačítkem výše');
+    element.classList.toggle('error', failed);
+    element.textContent = parts.join(' · ') + '.';
+  }
+
+  function save() {
+    TV.autosave.scheduleSave(state.project, function (error) {
+      updateSaveState(error);
+    });
+    TV.fileSink.schedule(function () {
+      return TV.exporters.toStandaloneHtml(state.project);
+    }, function () {
+      updateSaveState(TV.autosave.lastError);
+    });
+  }
+
+  function chooseSinkFile() {
+    TV.fileSink.choose(TV.exporters.slug(state.project.name) + '.html')
+      .then(function (name) {
+        $('btn-file-sink').textContent = 'Ukládá se do: ' + name;
+        toast('Práce se teď průběžně zapisuje do ' + name + '.');
+        return TV.fileSink.schedule(function () {
+          return TV.exporters.toStandaloneHtml(state.project);
+        }, function () { updateSaveState(TV.autosave.lastError); });
+      })
+      .catch(function (error) {
+        if (error && error.name === 'AbortError') return;   // the picker was closed
+        toast(error.message || String(error), true);
+      });
+  }
+
+  function saveCurrent() {
+    if (!state.selected) return false;
+    var project = state.project;
+    try {
+      project.surveyor = $('surveyor').value.trim();
+      project.setValues(state.selected.key, collectValues(), {
+        note: $('note').value,
+        status: $('flagged').checked ? 'flagged' : undefined,
+        surveyor: project.surveyor
+      });
+    } catch (error) {
+      toast(error.message || String(error), true);
+      return false;
+    }
+    state.map.refresh(state.selected.key);
+    renderHistory(state.selected.key);
+    updateProgress();
+    save();
+    toast('Uloženo.');
+    return true;
+  }
+
+  function clearCurrent() {
+    if (!state.selected) return;
+    state.project.clearValues(state.selected.key, {
+      surveyor: $('surveyor').value.trim()
+    });
+    state.map.refresh(state.selected.key);
+    showLink(state.selected.key, { focus: false });
+    updateProgress();
+    save();
+    toast('Hodnoty vymazány.');
+  }
+
+  function copyToOpposite() {
+    if (!state.selected) return;
+    var reverse = state.project.reverseKey(state.selected.key);
+    if (!reverse) return;
+    if (!saveCurrent()) return;
+    try {
+      state.project.setValues(reverse, collectValues(), {
+        surveyor: $('surveyor').value.trim()
+      });
+    } catch (error) {
+      toast(error.message || String(error), true);
+      return;
+    }
+    state.map.refresh(reverse);
+    updateProgress();
+    save();
+    toast('Zkopírováno do opačného směru.');
+  }
+
+  function nextEmpty() {
+    var map = state.map;
+    var candidates = map.items.filter(function (item) {
+      return item.value === null && (!state.selected || item.key !== state.selected.key);
+    });
+    if (!candidates.length) {
+      toast('Všechny směry jsou vyplněné.');
+      return;
+    }
+    var centre = map.centre;
+    candidates.sort(function (a, b) {
+      return Math.hypot(a.bbox[0] - centre[0], a.bbox[1] - centre[1])
+        - Math.hypot(b.bbox[0] - centre[0], b.bbox[1] - centre[1]);
+    });
+    showLink(candidates[0].key, { centre: true });
+  }
+
+  function applySearch() {
+    var needle = $('search').value.trim().toLowerCase();
+    if (!needle) {
+      state.map.setFilter(null);
+      return;
+    }
+    var keys = {};
+    var matches = 0;
+    state.project.links.forEach(function (link) {
+      var haystack = [link.linkNo, link.fromNode, link.toNode, link.name]
+        .join(' ').toLowerCase();
+      if (haystack.indexOf(needle) >= 0) { keys[link.key] = true; matches += 1; }
+    });
+    state.map.setFilter(matches ? keys : {});
+    if (!matches) {
+      toast('Nic nenalezeno.');
+    } else {
+      var bounds = state.project.links.reduce(function (acc, link) {
+        if (!keys[link.key]) return acc;
+        link.geom.forEach(function (p) {
+          acc[0] = Math.min(acc[0], p[0]);
+          acc[1] = Math.min(acc[1], p[1]);
+          acc[2] = Math.max(acc[2], p[0]);
+          acc[3] = Math.max(acc[3], p[1]);
+        });
+        return acc;
+      }, [Infinity, Infinity, -Infinity, -Infinity]);
+      state.map.fitBounds(bounds);
+      toast(matches + ' nalezeno.');
+    }
+  }
+
+  /* ---------- exports ---------- */
+
+  function includeEmpty() { return $('include-empty').checked; }
+
+  function exportPng() {
+    var project = state.project;
+    var stats = project.stats();
+    var canvas = state.map.exportImage({
+      title: project.name,
+      subtitle: stats.filled + ' z ' + stats.total + ' směrů vyplněno'
+        + (project.fields.length ? ' · ' + project.fields[0].label : ''),
+      footerRight: new Date().toLocaleDateString('cs-CZ')
+    });
+    TV.exporters.downloadPng(canvas, project);
+  }
+
+  function mergeValues(file) {
+    readFile(file).then(function (buffer) {
+      var text = TV.parser.decodeBuffer(buffer);
+      var suffix = (file.name.split('.').pop() || '').toLowerCase();
+      var records;
+      if (suffix === 'html' || suffix === 'htm' || suffix === 'json') {
+        var data = suffix === 'json' ? JSON.parse(text) : extractEmbedded(text);
+        if (!data) throw new Error('V souboru není uložená práce.');
+        records = Object.keys(data.entries || {}).map(function (key) {
+          return { key: key, values: data.entries[key].values || {} };
+        });
+      } else {
+        records = TV.parser.readValueRecords(file.name, text);
+      }
+      var result = state.project.importRecords(records, { surveyor: file.name });
+      state.map.setProject(state.project);
+      state.map.draw();
+      updateProgress();
+      save();
+      toast(result.updated + ' směrů převzato'
+        + (result.missing ? ', ' + result.missing + ' nenalezeno v této síti' : '') + '.');
+    }).catch(function (error) {
+      toast(error.message || String(error), true);
+    });
+  }
+
+  /* ---------- wiring ---------- */
+
+  function wire() {
+    var dropzone = $('dropzone');
+    var fileInput = $('file-input');
+
+    $('btn-browse').addEventListener('click', function (event) {
+      event.stopPropagation();
+      fileInput.click();
+    });
+    dropzone.addEventListener('click', function () { fileInput.click(); });
+    fileInput.addEventListener('change', function () {
+      if (fileInput.files[0]) handleFile(fileInput.files[0]);
+      fileInput.value = '';
+    });
+
+    ['dragenter', 'dragover'].forEach(function (type) {
+      dropzone.addEventListener(type, function (event) {
+        event.preventDefault();
+        dropzone.classList.add('over');
+      });
+    });
+    ['dragleave', 'drop'].forEach(function (type) {
+      dropzone.addEventListener(type, function (event) {
+        event.preventDefault();
+        dropzone.classList.remove('over');
+      });
+    });
+    dropzone.addEventListener('drop', function (event) {
+      var file = event.dataTransfer && event.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+    // Dropping anywhere on the start screen works too.
+    $('start').addEventListener('dragover', function (event) { event.preventDefault(); });
+    $('start').addEventListener('drop', function (event) {
+      event.preventDefault();
+      var file = event.dataTransfer && event.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+
+    $('btn-add-field').addEventListener('click', function () { addFieldRow(null); });
+    $('btn-create').addEventListener('click', createProject);
+    $('btn-cancel-setup').addEventListener('click', function () {
+      state.pendingImport = null;
+      $('setup').classList.add('hidden');
+      message('');
+    });
+
+    $('value-form').addEventListener('submit', function (event) {
+      event.preventDefault();
+      saveCurrent();
+    });
+    $('btn-clear').addEventListener('click', clearCurrent);
+    $('btn-copy').addEventListener('click', copyToOpposite);
+    $('btn-next').addEventListener('click', nextEmpty);
+    $('btn-opposite').addEventListener('click', function () {
+      if (!state.selected) return;
+      var reverse = state.project.reverseKey(state.selected.key);
+      if (reverse) showLink(reverse);
+    });
+
+    $('surveyor').addEventListener('change', function () {
+      state.project.surveyor = $('surveyor').value.trim();
+      save();
+    });
+    $('search').addEventListener('change', applySearch);
+    $('search').addEventListener('search', applySearch);
+
+    $('show-labels').addEventListener('change', function (event) {
+      state.map.showLabels = event.target.checked;
+      state.map.draw();
+    });
+    $('show-bands').addEventListener('change', function (event) {
+      state.map.showBands = event.target.checked;
+      state.map.draw();
+    });
+    $('show-arrows').addEventListener('change', function (event) {
+      state.map.showArrows = event.target.checked;
+      state.map.draw();
+    });
+    $('show-basemap').addEventListener('change', function (event) {
+      state.map.setBasemap(BASEMAP_URL, event.target.checked);
+      $('attribution').innerHTML = event.target.checked ? BASEMAP_ATTRIBUTION : '';
+    });
+
+    $('zoom-in').addEventListener('click', function () { state.map.zoomBy(1.6); });
+    $('zoom-out').addEventListener('click', function () { state.map.zoomBy(1 / 1.6); });
+    $('zoom-fit').addEventListener('click', function () {
+      state.map.fitBounds(state.project.bounds());
+    });
+
+    $('btn-file-sink').addEventListener('click', chooseSinkFile);
+    $('btn-file-sink').disabled = !TV.fileSink.supported;
+    if (!TV.fileSink.supported) {
+      $('btn-file-sink').title =
+        'Průběžný zápis do souboru umí Chrome a Edge. V jiném prohlížeči '
+        + 'použijte tlačítko "Uložit práci (HTML)".';
+    }
+
+    $('btn-save-html').addEventListener('click', function () {
+      TV.exporters.downloadStandalone(state.project);
+      toast('Uloženo jako samostatný HTML soubor.');
+    });
+    $('btn-csv').addEventListener('click', function () {
+      TV.exporters.downloadCsv(state.project, includeEmpty());
+    });
+    $('btn-att').addEventListener('click', function () {
+      TV.exporters.downloadAtt(state.project, includeEmpty());
+    });
+    $('btn-png').addEventListener('click', exportPng);
+    $('btn-geojson').addEventListener('click', function () {
+      try {
+        TV.exporters.downloadGeoJson(state.project);
+      } catch (error) {
+        toast(error.message, true);
+      }
+    });
+    $('btn-script').addEventListener('click', function () {
+      TV.exporters.downloadVisumScript(state.project);
+    });
+    $('btn-merge').addEventListener('click', function () { $('merge-input').click(); });
+    $('merge-input').addEventListener('change', function () {
+      var file = $('merge-input').files[0];
+      if (file) mergeValues(file);
+      $('merge-input').value = '';
+    });
+
+    $('btn-back').addEventListener('click', function () {
+      if (!window.confirm(
+        'Zavřít projekt? Práce zůstane uložená v prohlížeči a najdete ji v seznamu.'
+      )) return;
+      $('work').classList.add('hidden');
+      $('start').classList.remove('hidden');
+      document.title = 'TrafficVolumes — zadávání intenzit';
+      renderRecent();
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if ($('work').classList.contains('hidden')) return;
+      var typing = ['INPUT', 'TEXTAREA', 'SELECT'].indexOf(event.target.tagName) >= 0;
+      if (event.key === 'Escape') {
+        state.map.select(null);
+        hideDetail();
+        return;
+      }
+      if (typing) return;
+      var key = event.key.toLowerCase();
+      if (key === 'n') { event.preventDefault(); nextEmpty(); }
+      if (key === 'o' && state.selected) {
+        var reverse = state.project.reverseKey(state.selected.key);
+        if (reverse) { event.preventDefault(); showLink(reverse); }
+      }
+    });
+
+    window.addEventListener('beforeunload', function (event) {
+      if (state.project && (TV.autosave.lastError || TV.fileSink.lastError)) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    });
+  }
+
+  /* ---------- boot ---------- */
+
+  function boot() {
+    wire();
+    // A file saved with "Uložit práci" carries its project inside it.
+    var embedded = document.getElementById('tv-embedded');
+    if (embedded && embedded.textContent.trim()) {
+      try {
+        openProject(TV.Project.fromJSON(JSON.parse(embedded.textContent)));
+        return;
+      } catch (error) {
+        message('Vložená data se nepodařilo načíst: ' + error.message, 'error');
+      }
+    }
+    $('work').classList.add('hidden');
+    $('start').classList.remove('hidden');
+    renderRecent();
+
+    var fallback = TV.autosave.fallbackEntries();
+    if (fallback) {
+      message(
+        'Minule se nepodařilo uložit práci do prohlížeče. Zadané hodnoty ('
+        + Object.keys(fallback.entries || {}).length + ' směrů) jsou zachované — '
+        + 'načtěte znovu síť a použijte "Načíst hodnoty…".',
+        'warn'
+      );
+    }
+  }
+
+  TV.ui = { boot: boot, state: state };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})(typeof globalThis !== 'undefined'
+  ? (globalThis.TV = globalThis.TV || {})
+  : (this.TV = this.TV || {}));
+</script>
+</body>
+</html>

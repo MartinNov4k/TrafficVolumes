@@ -1,197 +1,182 @@
 # TrafficVolumes
 
 Ruční zadávání intenzit dopravy na linky z **PTV Visum** — v mapě, po směrech,
-**bez licence Visum**. Výsledek se vrací zpět do Visum jako uživatelský atribut
-na linku.
+**bez licence Visum a bez jakékoli instalace**. Celá aplikace je jeden HTML
+soubor, který se otevře dvojklikem v prohlížeči. Výsledek se vrací do Visumu
+jako uživatelský atribut na linku.
 
-Typický scénář: vy máte licenci Visum a exportujete síť. Kolega, projektant nebo
-sčítač licenci nemá — dostane jeden projektový soubor a spouštěcí skript, v
-prohlížeči proklikává jednotlivé směry a zapisuje intenzity. Vy si pak hotová
-data načtete zpět do Visum.
+Typický scénář: vy máte licenci Visum a exportujete síť. Kolega nebo sčítač
+licenci nemá — dostane e‑mailem jeden soubor, proklikává v mapě jednotlivé
+směry a zapisuje intenzity. Vy si pak hotová data načtete zpět do Visumu.
 
-![Náhled](docs/screenshot.png)
+![Aplikace](docs/screenshot.png)
 
-## Co to umí
+## Rychlý start
 
-- Načte export linků z Visum: `.att`, `.net`, `.csv`, `.geojson` i `.shp`.
-- Vykreslí **každý směr linku zvlášť**, odsazený vpravo ve směru jízdy, se
-  šipkou — obousměrný link jsou tedy dvě samostatně klikatelné čáry.
-- Po kliknutí se zadá intenzita (i více veličin naráz, např. celkem / nákladní /
-  špičková hodina), poznámka a případně příznak „k prověření“.
-- Vše se průběžně ukládá do jednoho souboru `*.tvol` včetně historie změn.
-- Export zpět do Visum jako `.att` s klíčem `NO;FROMNODENO;TONODENO`, takže
-  každý směr dostane svou hodnotu. Navíc CSV, GeoJSON a pomocný skript pro Visum.
-- Práce více lidí se slučuje příkazem `merge`.
+1. Otevřete **[`dist/TrafficVolumes.html`](dist/TrafficVolumes.html)** v prohlížeči
+   (stačí dvojklik, funguje i z flash disku, offline).
+2. Přetáhněte do okna export linků z Visumu (`.att`, `.net`, `.csv`, `.geojson`).
+3. Klikejte v mapě na směry linků a zapisujte intenzity.
 
-## Požadavky
+Nic se nikam neodesílá — soubor běží celý ve vašem prohlížeči, žádný server.
 
-**Jen Python 3.9 nebo novější.** Žádné knihovny se neinstalují — mapa,
-souřadnicové transformace i webový server jsou napsané nad standardní knihovnou,
-takže to běží i na uzamčeném firemním počítači bez přístupu k internetu.
+## Jak se data ukládají
 
-Volitelně:
+Tohle je nejdůležitější část, tak popořadě od nejbezpečnějšího:
 
-- `pyproj` — pokud potřebujete jiný souřadnicový systém než S-JTSK, WGS84 nebo
-  Web Mercator (`pip install pyproj`),
-- `pyshp` — pro čtení shapefilů (`pip install pyshp`).
+| Způsob | Kdy se použije | K čemu |
+| --- | --- | --- |
+| **Automaticky do prohlížeče** | sám od sebe po každém zápisu | pojistka proti zavření okna nebo pádu; při dalším otevření aplikace nabídne „Pokračovat“ |
+| **Průběžně do souboru** | tlačítko *Průběžně ukládat do souboru…* | vyberete soubor na disku a aplikace do něj od té chvíle sama zapisuje každou změnu (Chrome, Edge) |
+| **Uložit práci (HTML)** | tlačítko | jeden soubor se sítí i daty — tímhle se práce **předává zpátky vám**; dvojklikem se otevře přesně tam, kde sčítač skončil |
+| **CSV** | tlačítko | pro váš vlastní skript do Visumu |
+| **`.att`** | tlačítko | Visum ho načte přímo, bez skriptování |
+| **PNG kartogram** | tlačítko | obrázek do zprávy, ne datový kanál |
 
-## Postup
+Jinými slovy: **CSV není úložiště, ale export.** Data drží autosave a uložený
+HTML soubor; CSV a `.att` si stahujete, až když jsou hotová.
 
-### 1. Export sítě z Visum
+Tlačítko *PNG kartogram* vygeneruje obrázek aktuálního výřezu s legendou:
 
-Nejjednodušší je **uložit síť jako `.net`** (`File > Export > Network file`,
-resp. „Uložit síť jako…“). Soubor obsahuje tabulky `$NODE`, `$LINK` a
-`$LINKPOLY`, ze kterých se geometrie sestaví sama a nemusíte nic vybírat.
+![Kartogram](docs/kartogram.png)
+
+## Export do Visumu
+
+### Varianta A — přímo (bez skriptování)
+
+1. V aplikaci klikněte na **`.att` pro Visum**.
+2. Ve Visumu vytvořte na objektu **Link** uživatelské atributy — v seznamu
+   linků pravým tlačítkem na záhlaví sloupce → *User-defined attributes…*
+   Použijte **přesně** ID a typy vypsané v hlavičce staženého `.att`
+   (např. `VOL_MANUAL`, typ *Integer*).
+3. Načtěte soubor atributů (`File > Import > Attribute file…`; v některých
+   verzích *„Read attribute file“* přímo ze seznamu linků).
+
+Soubor má tvar:
+
+```
+$LINK:NO;FROMNODENO;TONODENO;VOL_MANUAL
+1;10;11;12500
+1;11;10;9800
+```
+
+Klíčové sloupce `NO;FROMNODENO;TONODENO` adresují **jeden konkrétní směr**
+linku, takže každý směr si ponese svou hodnotu. Nevyplněné směry se
+nezapisují, aby Visum nepřepsalo stávající hodnoty prázdnou hodnotou
+(pokud je chcete, zaškrtněte *exportovat i nevyplněné směry*).
+
+Tlačítko **Visum skript** stáhne hotový Python skript, který kroky 2 a 3 udělá
+sám — spustíte ho ve Visumu přes `Scripts > Run script file…`.
+
+### Varianta B — vlastní skript
+
+Tlačítko **CSV** stáhne středníkem oddělený soubor v UTF‑8 s BOM
+(Excel ho otevře do sloupců):
+
+```
+NO;FROMNODENO;TONODENO;NAME;VOL_MANUAL;NOTE;SURVEYOR;UPDATED_AT
+1;10;11;Husova;12500;ruční sčítání;Novák;2026-09-18T08:49:20.000Z
+```
+
+## Co exportovat z Visumu
+
+Nejjednodušší je **uložit síť jako `.net`** — obsahuje tabulky `$NODE`,
+`$LINK` a `$LINKPOLY`, ze kterých se geometrie sestaví sama a nemusíte nic
+vybírat.
 
 Druhá možnost je export seznamu linků do `.att`: otevřete seznam linků
-(`Lists > Network > Links`), nechte v něm zobrazené alespoň sloupce
+(`Lists > Network > Links`), nechte v něm alespoň sloupce
 
 ```
 NO   FROMNODENO   TONODENO   WKTPOLY
 ```
 
 a přidejte, co se má sčítajícímu zobrazovat jako kontext (`NAME`, `TYPENO`,
-`NUMLANES`, `CAPPRT`, `V0PRT`…). Seznam pak uložte tlačítkem pro uložení
-seznamu jako soubor atributů (`*.att`).
+`NUMLANES`, `CAPPRT`, `V0PRT`…) — všechny sloupce se mu ukážou v panelu
+*Atributy z Visumu*. Seznam pak uložte jako soubor atributů (`*.att`).
 
-> `WKTPOLY` je atribut linku s geometrií ve formátu WKT. Když ho nemáte,
-> stačí místo něj `FromNode\XCoord`, `FromNode\YCoord`, `ToNode\XCoord`,
-> `ToNode\YCoord` — linky se pak vykreslí jako úsečky.
+> Když `WKTPOLY` nemáte, stačí místo něj `FromNode\XCoord`, `FromNode\YCoord`,
+> `ToNode\XCoord`, `ToNode\YCoord` — linky se vykreslí jako úsečky.
 
-### 2. Vytvoření projektu
+Aplikace přečte i CSV export a GeoJSON. Kódování `cp1250` i UTF‑8 rozpozná sama.
 
-```bash
-python -m trafficvolumes create sit.att -o scitani2026.tvol --name "Sčítání 2026"
-```
+## Souřadnicové systémy
 
-Souřadnicový systém se rozpozná automaticky (S-JTSK/Krovák EPSG:5514 i 5513,
-WGS84, Web Mercator). Když chcete mít jistotu, zadejte ho:
+Rozpoznají se automaticky, ale při zakládání projektu je můžete přepsat:
 
-```bash
-python -m trafficvolumes create sit.att -o scitani2026.tvol --crs epsg:5514
-```
+- **S‑JTSK / Krovák East North (EPSG:5514)** — nejběžnější u českých sítí,
+- **S‑JTSK / Krovák jih‑západ (EPSG:5513, 2065)**,
+- **WGS84 (EPSG:4326)**, **Web Mercator (EPSG:3857)**,
+- **místní / neznámý** — síť se zobrazí v rovinném plátně bez podkladové mapy;
+  zadávání funguje úplně stejně.
 
-Více zadávaných veličin definujete opakovaným `--field` ve tvaru
-`NÁZEV[:typ[:popisek[:jednotka]]]`, kde typ je `int`, `float` nebo `text`.
-Název se stane ID uživatelského atributu ve Visum:
+Krovák je implementovaný přímo v aplikaci včetně transformace datumu
+Bessel → WGS84, takže síť sedí na podkladovou mapu na desítky centimetrů.
+(Ověřeno proti oficiálnímu příkladu z EPSG Guidance Note 7‑2 a proti PROJ.)
 
-```bash
-python -m trafficvolumes create sit.att -o scitani2026.tvol \
-  --field "VOL_DEN:int:Intenzita celkem:voz/den" \
-  --field "VOL_TV:int:Z toho nákladní:voz/den" \
-  --field "VOL_SH:int:Špičková hodina:voz/h"
-```
+## Zadávání
 
-### 3. Zadávání intenzit (bez licence Visum)
-
-Sčítajícímu pošlete složku `trafficvolumes/`, soubor `*.tvol` a
-`start_windows.bat` (na Linuxu/macOS `start_linux_mac.sh`). Po dvojkliku se
-otevře prohlížeč s mapou. Ručně je to:
-
-```bash
-python -m trafficvolumes serve scitani2026.tvol --open
-```
-
-V mapě se táhnutím posouvá, kolečkem přibližuje, kliknutím se vybere směr
-linku. Vlevo se zadá hodnota a uloží klávesou <kbd>Enter</kbd>. Klávesa
-<kbd>N</kbd> skočí na nejbližší nevyplněný směr, <kbd>O</kbd> přepne na opačný
-směr, tlačítko „Kopírovat →opačný“ zapíše stejné hodnoty i do protisměru.
-Ukládá se okamžitě do `*.tvol`, nic se nemůže ztratit zavřením okna.
-
-Podkladová mapa je standardně vypnutá, aby aplikace fungovala offline. Když je
-internet k dispozici, zapněte ji přepínačem a spusťte server s `--basemap osm`.
-
-Pro práci po síti (více lidí na jeden projekt):
-
-```bash
-python -m trafficvolumes serve scitani2026.tvol --host 0.0.0.0
-```
-
-Server v tom případě vypíše přístupový token, který je součástí odkazu.
-
-### 4. Export zpět pro Visum
-
-```bash
-python -m trafficvolumes export scitani2026.tvol -o intenzity
-```
-
-Vznikne `intenzity.att` (jen vyplněné směry) a `intenzity_read_into_visum.py`.
-Volitelně `--csv` a `--geojson`; `--include-empty` zapíše i prázdné směry
-(pozor, Visum jimi přepíše stávající hodnoty prázdnou hodnotou).
-
-### 5. Načtení do Visum
-
-1. Ve Visum vytvořte na objektu **Link** uživatelské atributy — v seznamu linků
-   pravým tlačítkem na záhlaví sloupce → *User-defined attributes…*, případně
-   přes nabídku uživatelských atributů sítě. Použijte **přesně** ID a typy
-   vypsané v hlavičce souboru `.att` (např. `VOL_DEN`, typ *Integer*).
-2. Načtěte soubor atributů (`File > Import > Attribute file…`; v některých
-   verzích *„Read attribute file“* přímo ze seznamu linků).
-
-Klíčové sloupce `NO;FROMNODENO;TONODENO` adresují jeden konkrétní směr linku,
-takže každý směr si ponese svou hodnotu.
-
-Krok 1 i 2 umí udělat i vygenerovaný skript `intenzity_read_into_visum.py`,
-spuštěný z Python konzole ve Visum (`Scripts > Run script file…`).
+- Kliknutí v mapě vybere směr linku. Každý směr je samostatná čára odsazená
+  **vpravo ve směru jízdy**, se šipkou — obousměrný link jsou tedy dvě čáry.
+- <kbd>Enter</kbd> uloží, <kbd>N</kbd> skočí na nejbližší nevyplněný směr,
+  <kbd>O</kbd> přepne na opačný směr, <kbd>Esc</kbd> zruší výběr.
+- Tlačítko *Kopírovat →opačný* zapíše stejné hodnoty i do protisměru.
+- Zadat lze víc veličin naráz (např. celkem / nákladní / špičková hodina) —
+  nastavíte je při zakládání projektu; název veličiny se stane ID
+  uživatelského atributu ve Visumu.
+- Čísla se přijímají i s desetinnou čárkou (`48,5`) a s mezerami
+  (`12 500`). Poznámka a příznak *k prověření* jsou u každého směru.
 
 ## Více sčítajících
 
-Každý dostane kopii projektu, pracuje na své části a pošle soubor zpět.
-Sloučení:
+Každý dostane kopii uloženého HTML, vyplní svou část a pošle soubor zpět.
+Sloučení: otevřete svůj projekt a tlačítkem **Načíst hodnoty…** postupně
+načtěte soubory od ostatních — bere `.html`, `.json`, `.csv` i `.att`.
+
+## Prohlížeče
+
+Testováno v prohlížečích založených na Chromiu (Chrome, Edge). Ve Firefoxu a
+Safari funguje zadávání i všechny exporty; průběžný zápis do souboru je jen
+v Chrome a Edge (jinde je tlačítko neaktivní a použije se *Uložit práci*).
+
+Velikost není problém: síť s 21 300 směry se načte za ~0,2 s, mapa se
+překresluje v jednotkách až desítkách milisekund a uložený HTML soubor má
+kolem 6,5 MB.
+
+## Vývoj
+
+Aplikace se skládá z modulů v `src/`; `dist/TrafficVolumes.html` je z nich
+sestavený jednosouborový výstup.
 
 ```bash
-python -m trafficvolumes merge scitani2026.tvol od_novaka.tvol od_svobodove.tvol
+python3 build.py              # src/ -> dist/TrafficVolumes.html
+node --test tests/js/         # 54 unit testů (projekce, parser, projekt, export)
 ```
 
-Slučovat lze i z `.att` nebo `.csv`. Přepínač `--keep` ponechá hodnoty, které
-už v projektu jsou, místo jejich přepsání.
-
-## Přehled příkazů
-
-| Příkaz | K čemu |
+| Modul | Obsah |
 | --- | --- |
-| `create` | vytvoří projekt z exportu Visum |
-| `serve` | spustí mapu v prohlížeči |
-| `export` | zapíše `.att` / CSV / GeoJSON pro Visum |
-| `info` | vypíše, co projekt obsahuje a kolik je hotovo |
-| `merge` | sloučí hodnoty z jiných projektů nebo souborů |
-| `fields` | zobrazí nebo změní zadávané veličiny |
+| `src/01-projection.js` | Krovák, Helmertova transformace datumu, Web Mercator, rozpoznání systému |
+| `src/02-parser.js` | čtení `.att` / `.net` / CSV / GeoJSON, WKT, kódování |
+| `src/03-project.js` | stav projektu, validace hodnot, historie změn |
+| `src/04-autosave.js` | IndexedDB + průběžný zápis do souboru |
+| `src/05-export.js` | CSV, `.att`, GeoJSON, PNG, samostatné HTML |
+| `src/06-map.js` | vykreslování mapy na canvasu, odsazení směrů, výběr |
+| `src/07-ui.js` | obrazovky a ovládání |
 
-Nápovědu k jednotlivým příkazům vypíše `python -m trafficvolumes <příkaz> --help`.
+`samples/sample_links.att` je malá vzorová síť v S‑JTSK, na které si lze celý
+postup vyzkoušet.
 
-## Když něco nesedí
+## Volitelné: nástroje pro příkazovou řádku
 
-**„No link geometry could be built“** — export neobsahuje geometrii. Přidejte do
-seznamu sloupec `WKTPOLY`, nebo exportujte celou síť jako `.net`, aby byla
-součástí tabulka `$NODE`.
-
-**Síť se v mapě zobrazuje na špatném místě** — špatně odhadnutý souřadnicový
-systém. Vytvořte projekt znovu s výslovným `--crs epsg:5514` (nebo `5513`).
-Když souřadnicový systém není podporovaný, `--crs local` zobrazí síť v rovinném
-plátně bez podkladové mapy; zadávání funguje stejně.
-
-**Diakritika v `.att` je rozsypaná** — Visum na českých Windows čte cp1250, což
-je výchozí kódování exportu. Pokud potřebujete jiné, použijte
-`--encoding utf-8`.
-
-**Intenzity se po načtení do Visum neobjeví** — zkontrolujte, že se ID
-uživatelského atributu přesně shoduje s názvem sloupce v `.att` a že je atribut
-založený na objektu *Link*, ne na uzlu nebo úseku.
-
-## Ukázková data
-
-`samples/sample_links.att` je malá vzorová síť v S-JTSK (EPSG:5514), na které si
-lze celý postup vyzkoušet:
+Ve složce `trafficvolumes/` je navíc Python varianta téhož (CLI + lokální
+server) pro dávkové zpracování na vaší straně — hromadné zakládání projektů,
+slučování a export skriptem. Pro samotné sčítání není potřeba; sčítající
+vystačí s jedním HTML souborem.
 
 ```bash
-python -m trafficvolumes create samples/sample_links.att -o ukazka.tvol --force
-python -m trafficvolumes serve ukazka.tvol --open
-```
-
-## Testy
-
-```bash
-python -m unittest discover -s tests -v
+python3 -m trafficvolumes create sit.att -o scitani.tvol
+python3 -m trafficvolumes export scitani.tvol -o intenzity
+python3 -m unittest discover -s tests   # 114 testů
 ```
 
 ## Licence

@@ -2,7 +2,8 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 build/
-dist/
+
+# dist/ holds the built single file app, which is the deliverable
 .venv/
 venv/
 
