@@ -524,7 +524,32 @@ function readNetwork(fileName, text) {
       }
     }
   });
-  return { links: links, skipped: skipped };
+
+  // A Visum link list is often exported with one row per link rather than one
+  // per direction. In that case the opposite direction is missing from the file
+  // even though the link carries traffic both ways, so it is created here with
+  // the polyline reversed. When the export does contain mirrored rows it is
+  // already per direction, and a link listed only once really is one-way.
+  var byKey = {};
+  links.forEach(function (l) { byKey[l.key] = true; });
+  var mirrored = links.filter(function (l) {
+    return byKey[l.no + '|' + l.to + '|' + l.from];
+  }).length;
+
+  var added = 0;
+  if (!mirrored) {
+    var both = [];
+    links.forEach(function (l) {
+      both.push(l);
+      both.push({
+        no: l.no, from: l.to, to: l.from, key: l.no + '|' + l.to + '|' + l.from,
+        name: l.name, geom: l.geom.slice().reverse()
+      });
+      added++;
+    });
+    links = both;
+  }
+  return { links: links, skipped: skipped, added: added };
 }
 
 /* ------------------------------------------------------------------ *
@@ -1077,7 +1102,12 @@ function loadFile(file) {
       $('drop').classList.add('hidden');
       $('zoom').classList.remove('hidden');
       $('title').textContent = file.name.replace(/\.[^.]+$/, '');
+      var oneWay = kept.filter(function (l) {
+        return !byKey[l.no + '|' + l.to + '|' + l.from];
+      }).length;
       $('subtitle').textContent = kept.length + ' směrů · ' + projector.name
+        + (parsed.added ? ' · oba směry doplněny k ' + parsed.added + ' linkům' : '')
+        + (oneWay ? ' · ' + oneWay + ' jednosměrných' : '')
         + (parsed.skipped ? ' · ' + parsed.skipped + ' řádků bez geometrie' : '');
       $('legend').innerHTML = '<span class="swatch" style="background:' + EMPTY_COLOUR
         + '"></span>nevyplněno &nbsp;'

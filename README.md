@@ -63,6 +63,17 @@ NO   FROMNODENO   TONODENO   WKTPOLY
 Místo `WKTPOLY` postačí i `FromNode\XCoord`, `FromNode\YCoord`,
 `ToNode\XCoord`, `ToNode\YCoord` — linky se pak vykreslí jako úsečky.
 
+### Jeden řádek na link vs. na směr
+
+Seznam linků se z Visumu často exportuje **s jedním řádkem na link**, ne na
+směr. V takovém případě aplikace druhý směr sama doplní (s obrácenou
+geometrií) a v hlavičce to napíše — *oba směry doplněny k 31 linkům*. Kliknout
+a zapsat tedy jde oba.
+
+Když export **obsahuje oba směry jako samostatné řádky** (mají prohozené
+`FROMNODENO`/`TONODENO`), bere se tak, jak je: nic se nedoplňuje a link
+uvedený jen jednou je skutečně jednosměrný.
+
 ## Souřadnicové systémy
 
 Rozpoznají se samy: **S‑JTSK / Krovák** (EPSG:5514 i 5513) a **WGS84**.
