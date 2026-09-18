@@ -28,21 +28,25 @@ To je celé. Funguje offline i z flash disku, nic se nikam neodesílá.
 Do políčka *Název atributu ve Visumu* zadejte, jak se má sloupec jmenovat
 (výchozí `VOL_MANUAL`).
 
-Přepínač **podkladová mapa** podloží síť mapou z OpenStreetMap. Vyžaduje
-připojení k internetu; když se dlaždice nenačtou, aplikace to napíše a pracuje
-se dál nad tmavým pozadím. U sítí v neznámém souřadnicovém systému se přepínač
-nenabízí, protože dlaždice by neseděly.
+V nabídce **podkladová mapa** si vyberete zdroj dlaždic. U sítí v neznámém
+souřadnicovém systému se nenabízí, protože dlaždice by neseděly.
 
-Dlaždice se načítají stejně jako v Leafletu nebo Folium, takže fungují všude,
-kde funguje ta. Aplikace se jen na začátku jednou zeptá, zda server posílá
-hlavičky CORS: když ano, dostane se podkladová mapa i do uloženého obrázku;
-když ne, zobrazí se v aplikaci, ale obrázek se uloží bez ní (prohlížeč jinak
-odmítne plátno přečíst) a aplikace to napíše.
+> **Pozor na OpenStreetMap.** Stránka otevřená z disku (`file://`) neposílá
+> hlavičku `Referer` a JavaScript ji doplnit nesmí. Servery OpenStreetMap
+> takové požadavky podle svých
+> [pravidel](https://operations.osmfoundation.org/policies/tiles/) odmítají a
+> místo mapy pošlou dlaždici s nápisem *Access blocked*. Z aplikace se to
+> obejít nedá — proto je v nabídce i pár jiných zdrojů a položka **vlastní
+> adresa…**, kam vložíte libovolné XYZ URL ve tvaru `.../{z}/{x}/{y}.png`,
+> třeba na server své organizace.
+>
+> (Ve Folium tentýž problém nenastane, protože se mapa obvykle otevírá přes
+> `http://localhost`, kde `Referer` existuje.)
 
-Pokud je ve vaší síti OpenStreetMap nedostupná, přepište v souboru
-`TrafficVolumes.html` konstantu `TILE_URL` na adresu svého vlastního
-dlaždicového serveru ve tvaru `.../{z}/{x}/{y}.png`. Je hned na začátku
-skriptu.
+Uložený obrázek obsahuje podkladovou mapu jen tehdy, když server dlaždic pošle
+hlavičky CORS. Bez nich prohlížeč odmítne plátno přečíst, obrázek se uloží bez
+podkladu a aplikace to napíše. Aplikace se na to zeptá jednou předem, ne u
+každé dlaždice.
 
 **Zadané hodnoty nikam neodcházejí a nikde nezůstávají.** Drží se jen
 v otevřené stránce, nezapisují se do HTML souboru ani do prohlížeče. Ze

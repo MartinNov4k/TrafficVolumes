@@ -266,19 +266,21 @@ with sync_playwright() as pw:
           and page6.evaluate("() => document.activeElement.id") == "vb")
 
     print("\n== podkladová mapa ==")
-    check("přepínač je u zeměpisných souřadnic k dispozici",
+    check("nabídka je u zeměpisných souřadnic k dispozici",
           not page6.evaluate(
               "() => document.getElementById('basemap-row').classList.contains('hidden')"))
+    check("nabízí se víc zdrojů dlaždic",
+          page6.evaluate("() => document.querySelectorAll('#basemap option').length") >= 4)
     check("atribuce je zprvu skrytá",
           page6.evaluate("() => document.getElementById('attrib').classList.contains('hidden')"))
-    page6.check("#basemap"); page6.wait_for_timeout(2500)
+    page6.select_option("#basemap", "carto-light"); page6.wait_for_timeout(2500)
     bm = page6.evaluate("""() => ({ on: basemapOn, tiles: Object.keys(tiles).length,
         hidden: document.getElementById('attrib').classList.contains('hidden'),
         text: document.getElementById('attrib').textContent,
         drawn: net.visible.length })""")
     check("dlaždice se začaly načítat", bm["on"] and bm["tiles"] > 0, bm)
-    check("atribuce OpenStreetMap je vidět",
-          not bm["hidden"] and "OpenStreetMap" in bm["text"], bm)
+    check("atribuce zvoleného zdroje je vidět",
+          not bm["hidden"] and "OpenStreetMap" in bm["text"] and "CARTO" in bm["text"], bm)
     # The sandbox blocks the tile server, which is exactly the offline case.
     check("síť se kreslí i bez dlaždic", bm["drawn"] > 0, bm)
 
@@ -288,8 +290,17 @@ with sync_playwright() as pw:
     check("PNG jde uložit i se zapnutou podkladovou mapou",
           open(bm_png, "rb").read()[:8] == b"\x89PNG\r\n\x1a\n")
 
-    page6.uncheck("#basemap"); page6.wait_for_timeout(250)
-    check("vypnutí schová atribuci",
+    page6.select_option("#basemap", "custom"); page6.wait_for_timeout(250)
+    check("volba vlastní adresy odkryje pole",
+          not page6.evaluate(
+              "() => document.getElementById('tileurl').classList.contains('hidden')"))
+    page6.fill("#tileurl", "neplatna-adresa")
+    page6.dispatch_event("#tileurl", "change"); page6.wait_for_timeout(300)
+    check("nesmyslná adresa je odmítnutá",
+          "{z}" in page6.text_content("#toast"), page6.text_content("#toast"))
+
+    page6.select_option("#basemap", "none"); page6.wait_for_timeout(250)
+    check("volba žádná schová atribuci",
           page6.evaluate("() => document.getElementById('attrib').classList.contains('hidden')"))
     page6.close()
 
