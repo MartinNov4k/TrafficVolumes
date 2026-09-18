@@ -1,14 +1,3 @@
 __pycache__/
-*.py[cod]
-*.egg-info/
-build/
-
-# dist/ holds the built single file app, which is the deliverable
 .venv/
 venv/
-
-# Project files and exports produced while working
-*.tvol
-*.tvol-wal
-*.tvol-shm
-/out/
