@@ -20,6 +20,7 @@ APP = "file://" + os.path.join(ROOT, "TrafficVolumes.html")
 NET = os.path.join(ROOT, "samples", "sample_links.att")
 ONE_ROW = os.path.join(ROOT, "samples", "sample_links_one_row.att")
 REV_COLS = os.path.join(ROOT, "samples", "sample_links_reverse_cols.geojson")
+LOCAL = os.path.join(ROOT, "samples", "sample_links_local.att")
 DL = sys.argv[1] if len(sys.argv) > 1 else tempfile.mkdtemp(prefix="tvol-")
 LAUNCH = {"args": ["--no-sandbox"]}
 if os.environ.get("TV_CHROMIUM"):
@@ -219,6 +220,83 @@ with sync_playwright() as pw:
     check("panel nabídne oba směry",
           page5.evaluate("() => document.querySelectorAll('#dirs input').length") == 2)
     page5.close()
+
+    print("\n== je vidět, který směr se edituje ==")
+    page6 = ctx.new_page()
+    page6.on("pageerror", lambda e: errs.append("highlight: " + str(e)))
+    page6.goto(APP); page6.wait_for_timeout(250)
+    page6.evaluate("() => { try { localStorage.clear(); } catch (e) {} }")
+    page6.set_input_files("#file", NET)
+    page6.wait_for_function("() => !!window.net", timeout=15000); page6.wait_for_timeout(400)
+    duo = page6.evaluate("""() => { for (const l of net.links) { const p = pairOf(l.key);
+        if (p.b) return {a: p.a.key, b: p.b.key}; } return null; }""")
+    page6.evaluate("(k) => selectLink(net.byKey[k])", duo["a"]); page6.wait_for_timeout(250)
+    hl = page6.evaluate("""() => ({
+        focused: focusedKey,
+        active: document.activeElement.id,
+        dots: Array.from(document.querySelectorAll('#dirs .dot')).map(function (d) {
+            return d.style.background; }),
+        marked: Array.from(document.querySelectorAll('#dirs label')).map(function (l) {
+            return l.classList.contains('focused'); }) })""")
+    check("každý směr má svou barvu", len(hl["dots"]) == 2 and hl["dots"][0] != hl["dots"][1], hl)
+    check("zvýrazněn je klikutý směr",
+          hl["focused"] == duo["a"] and hl["active"] == "va" and hl["marked"] == [True, False], hl)
+
+    page6.focus("#vb"); page6.wait_for_timeout(250)
+    hl2 = page6.evaluate("""() => ({ focused: focusedKey,
+        marked: Array.from(document.querySelectorAll('#dirs label')).map(function (l) {
+            return l.classList.contains('focused'); }) })""")
+    check("přechod do druhého políčka přepne zvýraznění",
+          hl2["focused"] == duo["b"] and hl2["marked"] == [False, True], hl2)
+
+    page6.evaluate("(k) => selectLink(net.byKey[k])", duo["b"]); page6.wait_for_timeout(250)
+    check("klik na druhý směr v mapě zvýrazní jeho políčko",
+          page6.evaluate("() => focusedKey") == duo["b"]
+          and page6.evaluate("() => document.activeElement.id") == "vb")
+
+    print("\n== podkladová mapa ==")
+    check("přepínač je u zeměpisných souřadnic k dispozici",
+          not page6.evaluate(
+              "() => document.getElementById('basemap-row').classList.contains('hidden')"))
+    check("atribuce je zprvu skrytá",
+          page6.evaluate("() => document.getElementById('attrib').classList.contains('hidden')"))
+    page6.check("#basemap"); page6.wait_for_timeout(2500)
+    bm = page6.evaluate("""() => ({ on: basemapOn, tiles: Object.keys(tiles).length,
+        hidden: document.getElementById('attrib').classList.contains('hidden'),
+        text: document.getElementById('attrib').textContent,
+        drawn: net.visible.length })""")
+    check("dlaždice se začaly načítat", bm["on"] and bm["tiles"] > 0, bm)
+    check("atribuce OpenStreetMap je vidět",
+          not bm["hidden"] and "OpenStreetMap" in bm["text"], bm)
+    # The sandbox blocks the tile server, which is exactly the offline case.
+    check("síť se kreslí i bez dlaždic", bm["drawn"] > 0, bm)
+
+    with page6.expect_download(timeout=25000) as d6:
+        page6.click("#export-png")
+    bm_png = os.path.join(DL, "basemap.png"); d6.value.save_as(bm_png)
+    check("PNG jde uložit i se zapnutou podkladovou mapou",
+          open(bm_png, "rb").read()[:8] == b"\x89PNG\r\n\x1a\n")
+
+    page6.uncheck("#basemap"); page6.wait_for_timeout(250)
+    check("vypnutí schová atribuci",
+          page6.evaluate("() => document.getElementById('attrib').classList.contains('hidden')"))
+    page6.close()
+
+    print("\n== místní souřadnice ==")
+    page7 = ctx.new_page()
+    page7.on("pageerror", lambda e: errs.append("local: " + str(e)))
+    page7.goto(APP); page7.wait_for_timeout(250)
+    page7.evaluate("() => { try { localStorage.clear(); } catch (e) {} }")
+    page7.set_input_files("#file", LOCAL)
+    page7.wait_for_function("() => !!window.net", timeout=15000); page7.wait_for_timeout(400)
+    loc = page7.evaluate("""() => ({ crs: net.crs, geo: net.geo, n: net.links.length,
+        hidden: document.getElementById('basemap-row').classList.contains('hidden'),
+        drawn: net.visible.length })""")
+    check("neznámý systém zůstane v rovinném plátně",
+          not loc["geo"] and "místní" in loc["crs"], loc)
+    check("síť se i tak vykreslí", loc["n"] == 55 and loc["drawn"] > 0, loc)
+    check("podkladová mapa se u místních souřadnic nenabízí", loc["hidden"], loc)
+    page7.close()
 
     page.screenshot(path=os.path.join(DL, "simple.png"))
     b.close()

@@ -18,10 +18,19 @@ To je celé. Funguje offline i z flash disku, nic se nikam neodesílá.
 2. **Klikněte na link v mapě.** V panelu se objeví oba směry
    (`19 → 20` a `20 → 19`) a do každého se zapíše jeho intenzita.
    <kbd>Enter</kbd> uloží.
+
+   Každý směr má svou barvu — **modrou** a **fialovou** — a stejnou barvu má
+   puntík u jeho políčka. Směr, ve kterém právě píšete, je v mapě obtažený
+   silněji, takže je pořád zřejmé, které číslo kam patří.
 3. **Uložit .att** stáhne soubor pro Visum, **Uložit obrázek** kartogram v PNG.
 
 Do políčka *Název atributu ve Visumu* zadejte, jak se má sloupec jmenovat
 (výchozí `VOL_MANUAL`).
+
+Přepínač **podkladová mapa** podloží síť mapou z OpenStreetMap. Vyžaduje
+připojení k internetu; bez něj se nic nerozbije, jen zůstane tmavé pozadí.
+U sítí v neznámém souřadnicovém systému se přepínač nenabízí, protože dlaždice
+by neseděly.
 
 Hodnoty se průběžně ukládají do prohlížeče, takže zavřené okno o práci
 nepřipraví — po opětovném načtení stejné sítě se samy vrátí.
@@ -95,7 +104,11 @@ Neznámý systém se zobrazí v rovinném plátně — zadávání funguje stejn
 
 Každý směr je samostatná čára odsazená **vpravo ve směru jízdy**, se šipkou.
 Šířka a barva odpovídají zadané intenzitě, nevyplněné směry jsou šedé.
+Vybraný link má oba směry obtažené barvou podle panelu, editovaný silněji.
 Táhnutím se posouvá, kolečkem přibližuje, <kbd>Esc</kbd> zruší výběr.
+
+Obrázek uložený tlačítkem obsahuje i podkladovou mapu, pokud je zapnutá,
+a v patičce její atribuci.
 
 ## Test
 
