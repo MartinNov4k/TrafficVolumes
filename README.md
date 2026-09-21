@@ -6,19 +6,18 @@ nainstalovaného — stačí prohlížeč.
 
 ![Aplikace](docs/screenshot.png)
 
-## Dvě varianty
-
-| soubor | k čemu |
-| --- | --- |
-| **[`TrafficVolumes.html`](TrafficVolumes.html)** | pracujete sám: otevřete, přetáhnete síť, zadáte, uložíte `.att` a obrázek |
-| **[`TrafficVolumesPredani.html`](TrafficVolumesPredani.html)** | zadáváte přes kolegu: síť se **zapeče přímo do HTML** a předává se jeden soubor tam i zpátky |
-
-Obě se otevírají dvojklikem, fungují offline i z flash disku a nic neodesílají.
-Ovládají se stejně; předávací varianta má navíc tlačítko **Uložit HTML**.
-
 ## Spuštění
 
-Stáhněte příslušný soubor a otevřete dvojklikem. To je celé.
+Stáhněte **[`TrafficVolumes.html`](TrafficVolumes.html)** a otevřete dvojklikem.
+To je celé. Funguje offline i z flash disku, nic se nikam neodesílá.
+
+Jeden soubor zvládne obojí — práci pro sebe i zadání pro někoho dalšího. Chová
+se podle toho, jestli už v sobě síť má:
+
+| soubor | co nabízí |
+| --- | --- |
+| **prázdný** (stažený odsud) | přetáhnete síť z Visumu; pak jde uložit **HTML pro kolegu** |
+| **se zapečenou sítí** | otevře se rovnou do zadávání; nabízí už jen **Uložit HTML** |
 
 ## Použití
 
@@ -61,7 +60,7 @@ u každé dlaždice.
 
 ## Předání kolegovi
 
-S `TrafficVolumesPredani.html` vypadá kolečko takhle:
+Kolečko vypadá takhle:
 
 1. **U vás:** otevřete soubor, přetáhněte do něj export sítě z Visumu,
    zkontrolujte názvy atributů a klikněte **Uložit HTML pro kolegu**.
@@ -178,11 +177,8 @@ validaci čísel, jednosměrné linky, obsah `.att` i PNG.
 `tiles.py` si spustí vlastní dlaždicový server, takže nepotřebuje internet,
 a ověří chování s hlavičkami CORS, bez nich i při nedostupném serveru.
 
-`predani.py` projde celý kolotoč předání včetně opakovaného uložení.
-
-> Obě HTML varianty jsou samostatné soubory se společným kódem. Změna, která
-> se týká obou, se musí udělat dvakrát — kdyby to začalo vadit, dají se sloučit
-> do jednoho souboru, který se chová podle toho, jestli v sobě data má.
+`predani.py` a `e2e.py` jedou proti témuž souboru — jednou od prázdného
+zadání, jednou od souboru se zapečenou sítí.
 
 ## Licence
 

@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TrafficVolumes</title>
+<!-- Síť a zadané hodnoty se ukládají sem; prázdné = soubor teprve čeká na síť. -->
+<script id="tv-data" type="application/json"></script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>🚦</text></svg>">
 <style>
 :root {
@@ -26,6 +28,7 @@ body {
 }
 h1 { font-size: 16px; margin: 0; }
 .muted { color: var(--muted); font-size: 12px; }
+.small { font-size: 11px; line-height: 1.35; margin: 6px 0 0; }
 
 label span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
 input[type=text] {
@@ -132,7 +135,11 @@ kbd { font: 11px/1 ui-monospace, monospace; padding: 2px 4px; border-radius: 3px
 
     <footer>
       <div class="buttons">
-        <button type="button" class="primary" id="export-att">Uložit .att</button>
+        <button type="button" class="primary" id="save-html">Uložit HTML</button>
+      </div>
+      <p class="muted small" id="save-hint"></p>
+      <div class="buttons">
+        <button type="button" id="export-att">Uložit .att</button>
         <button type="button" id="export-png">Uložit obrázek</button>
       </div>
       <p class="muted" id="legend"></p>
@@ -661,6 +668,7 @@ var TILE_ATTRIB = 'Esri, HERE, Garmin, © <a href="https://www.openstreetmap.org
 var TILE_ATTRIB_TEXT = 'Esri, © OpenStreetMap';
 
 var net = null;          // {links, byKey, order, bbox, name, crs, geo}
+var embedded = false;    // true once this file carries a network of its own
 // direction key -> {all: number|undefined, hgv: number|undefined}
 var values = {};
 var dirInputs = {};      // direction key -> {all: input, hgv: input, block: element}
@@ -716,6 +724,7 @@ function recomputeMax() {
 }
 
 function updateProgress() {
+  updateSaveHint();
   var filled = Object.keys(values).filter(hasValue).length;
   $('progress').textContent = filled + ' z ' + net.links.length + ' směrů vyplněno';
 }
@@ -1382,7 +1391,71 @@ function exportPng(withoutBasemap) {
  * Loading a file
  * ------------------------------------------------------------------ */
 
+/**
+ * Take a list of directions whose geometry is already in display coordinates
+ * and put the network on screen. Shared by reading a Visum export and by the
+ * data baked into this file, so both paths end up in exactly the same state.
+ * `values` has to be set before the call.
+ */
+function installNetwork(links, meta) {
+  var kept = [], order = {}, byKey = {}, seen = {};
+  var minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
+
+  links.forEach(function (link) {
+    if (seen[link.key]) return;          // one map feature per direction
+    seen[link.key] = true;
+    var world = [], ok = true;
+    for (var i = 0; i < link.geom.length; i++) {
+      var pt = link.geom[i];
+      if (!isFinite(pt[0]) || !isFinite(pt[1])) { ok = false; break; }
+      world.push(meta.geo ? toMercator(pt[0], pt[1]) : [pt[0], pt[1]]);
+    }
+    if (!ok || world.length < 2) return;
+    link.world = world;
+    var bx = [Infinity, Infinity, -Infinity, -Infinity];
+    world.forEach(function (w) {
+      bx[0] = Math.min(bx[0], w[0]); bx[1] = Math.min(bx[1], w[1]);
+      bx[2] = Math.max(bx[2], w[0]); bx[3] = Math.max(bx[3], w[1]);
+    });
+    link.bbox = bx;
+    minx = Math.min(minx, bx[0]); miny = Math.min(miny, bx[1]);
+    maxx = Math.max(maxx, bx[2]); maxy = Math.max(maxy, bx[3]);
+    order[link.key] = kept.length;
+    byKey[link.key] = link;
+    kept.push(link);
+  });
+  if (!kept.length) throw new Error('Síť neobsahuje žádný použitelný link.');
+
+  net = {
+    links: kept, byKey: byKey, order: order, visible: [],
+    bbox: [minx, miny, maxx, maxy], name: meta.name, crs: meta.crs, geo: meta.geo
+  };
+  selected = null;
+  recomputeMax();
+
+  $('drop').classList.add('hidden');
+  $('zoom').classList.remove('hidden');
+  startBasemap();
+  $('title').textContent = meta.name.replace(/\.[^.]+$/, '');
+  var oneWay = kept.filter(function (l) {
+    return !byKey[l.no + '|' + l.to + '|' + l.from];
+  }).length;
+  $('subtitle').textContent = kept.length + ' směrů · ' + meta.crs
+    + (meta.extra || '') + (oneWay ? ' · ' + oneWay + ' jednosměrných' : '');
+  $('legend').innerHTML = '<span class="swatch" style="background:' + EMPTY_COLOUR
+    + '"></span>nevyplněno &nbsp;&nbsp;<span class="swatch" style="background:'
+    + FILLED_COLOUR + '"></span>zadaná intenzita';
+  updateProgress();
+  updateSaveHint();
+  resize();
+  fitAll();
+}
+
 function loadFile(file) {
+  if (embedded) {
+    toast('Tento soubor už síť obsahuje, jiná se do něj načíst nedá.', true);
+    return;
+  }
   var reader = new FileReader();
   reader.onload = function () {
     try {
@@ -1390,68 +1463,105 @@ function loadFile(file) {
       var projector = makeProjector(parsed.links.slice(0, 500).map(function (l) {
         return l.geom[0];
       }));
-
-      var kept = [], order = {}, byKey = {}, seen = {};
-      var minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
       parsed.links.forEach(function (link) {
-        if (seen[link.key]) return;          // one map feature per direction
-        seen[link.key] = true;
-        var world = [], ok = true;
+        var geom = [];
         for (var i = 0; i < link.geom.length; i++) {
-          var p = projector.fn(link.geom[i][0], link.geom[i][1]);
-          if (!isFinite(p[0]) || !isFinite(p[1])) { ok = false; break; }
-          world.push(projector.geo ? toMercator(p[0], p[1]) : p);
+          var pt = projector.fn(link.geom[i][0], link.geom[i][1]);
+          geom.push([pt[0], pt[1]]);
         }
-        if (!ok || world.length < 2) return;
-        link.world = world;
-        var bx = [Infinity, Infinity, -Infinity, -Infinity];
-        world.forEach(function (p) {
-          bx[0] = Math.min(bx[0], p[0]); bx[1] = Math.min(bx[1], p[1]);
-          bx[2] = Math.max(bx[2], p[0]); bx[3] = Math.max(bx[3], p[1]);
-        });
-        link.bbox = bx;
-        minx = Math.min(minx, bx[0]); miny = Math.min(miny, bx[1]);
-        maxx = Math.max(maxx, bx[2]); maxy = Math.max(maxy, bx[3]);
-        order[link.key] = kept.length;
-        byKey[link.key] = link;
-        kept.push(link);
+        link.geom = geom;
       });
-      if (!kept.length) throw new Error('Po převodu souřadnic nezbyl žádný link.');
-
-      net = {
-        links: kept, byKey: byKey, order: order, visible: [],
-        bbox: [minx, miny, maxx, maxy], name: file.name, crs: projector.name,
-        geo: projector.geo
-      };
       values = {};
-      selected = null;
-
-      recomputeMax();
-
-      $('drop').classList.add('hidden');
-      $('zoom').classList.remove('hidden');
-      // A background map only makes sense once the coordinates are geographic.
-      startBasemap();
-      $('title').textContent = file.name.replace(/\.[^.]+$/, '');
-      var oneWay = kept.filter(function (l) {
-        return !byKey[l.no + '|' + l.to + '|' + l.from];
-      }).length;
-      $('subtitle').textContent = kept.length + ' směrů · ' + projector.name
-        + (parsed.added ? ' · oba směry doplněny k ' + parsed.added + ' linkům' : '')
-        + (oneWay ? ' · ' + oneWay + ' jednosměrných' : '')
-        + (parsed.skipped ? ' · ' + parsed.skipped + ' řádků bez geometrie' : '');
-      $('legend').innerHTML = '<span class="swatch" style="background:' + EMPTY_COLOUR
-        + '"></span>nevyplněno &nbsp;&nbsp;<span class="swatch" style="background:'
-        + FILLED_COLOUR + '"></span>zadaná intenzita';
-      updateProgress();
-      resize();
-      fitAll();
+      installNetwork(parsed.links, {
+        name: file.name, crs: projector.name, geo: projector.geo,
+        extra: (parsed.added ? ' · oba směry doplněny k ' + parsed.added + ' linkům' : '')
+          + (parsed.skipped ? ' · ' + parsed.skipped + ' řádků bez geometrie' : '')
+      });
     } catch (error) {
       toast(error.message || String(error), true);
     }
   };
   reader.onerror = function () { toast('Soubor se nepodařilo přečíst.', true); };
   reader.readAsArrayBuffer(file);
+}
+
+/* ------------------------------------------------------------------ *
+ * Baking the work into this very file
+ * ------------------------------------------------------------------ */
+
+/** Everything needed to reopen this exactly as it stands. */
+function payload() {
+  return {
+    v: 1,
+    name: net.name,
+    crs: net.crs,
+    geo: net.geo,
+    attr: { all: $('attr').value, hgv: $('attr-hgv').value },
+    links: net.links.map(function (l) {
+      return {
+        no: l.no, from: l.from, to: l.to, key: l.key, name: l.name || '',
+        geom: l.geom.map(function (pt) {
+          return [Math.round(pt[0] * 1e6) / 1e6, Math.round(pt[1] * 1e6) / 1e6];
+        })
+      };
+    }),
+    values: values
+  };
+}
+
+/**
+ * Write this page out again with the network, and whatever has been typed in,
+ * stored inside it. The running document already holds the whole application,
+ * so serialising it and adding the data gives a file that opens straight into
+ * the work.
+ */
+function saveHtml() {
+  if (!net) { toast('Nejdřív načtěte síť z Visumu.', true); return; }
+  var clone = document.documentElement.cloneNode(true);
+
+  // Anything the page built at runtime; boot fills it in again.
+  ['dirs', 'legend', 'attrib', 'toast', 'progress', 'subtitle'].forEach(function (id) {
+    var node = clone.querySelector('#' + id);
+    if (node) node.innerHTML = '';
+  });
+  // Typed-in text lives in the property, not the attribute, so carry it over.
+  [['attr', $('attr').value], ['attr-hgv', $('attr-hgv').value]].forEach(function (e) {
+    var node = clone.querySelector('#' + e[0]);
+    if (node) node.setAttribute('value', e[1]);
+  });
+
+  var slot = clone.querySelector('#tv-data');
+  // Escaping "<" keeps the data from ever closing the script element early.
+  slot.textContent = JSON.stringify(payload()).replace(/</g, '\\u003c');
+
+  var filled = Object.keys(values).filter(hasValue).length;
+  var base = ascii(net.name).replace(/[^A-Za-z0-9._-]+/g, '_').replace(/\.[^.]*$/, '');
+  download(base + (embedded ? '_vyplneno' : '_zadani') + '.html',
+           '<!DOCTYPE html>\n' + clone.outerHTML, 'text/html;charset=utf-8');
+  toast(embedded
+    ? 'Uloženo' + (filled ? ' i se zadanými hodnotami.' : '.')
+    : 'Uloženo, soubor je připravený k odeslání.');
+}
+
+function updateSaveHint() {
+  var button = $('save-html');
+  var hint = $('save-hint');
+  if (!net) {
+    button.textContent = 'Uložit HTML';
+    hint.textContent = '';
+    return;
+  }
+  if (!embedded) {
+    // This copy carries no network yet, so it is the one that prepares the file
+    // somebody else will fill in.
+    button.textContent = 'Uložit HTML pro kolegu';
+    hint.textContent = 'Vznikne jeden soubor se zapečenou sítí. Kolega ho otevře '
+      + 'dvojklikem a rovnou zadává — nic nepřetahuje.';
+    return;
+  }
+  button.textContent = 'Uložit HTML';
+  hint.textContent = 'Uloží tento soubor i se zadanými hodnotami. Tímhle se práce '
+    + 'posílá dál; po otevření se pokračuje tam, kde jste skončil.';
 }
 
 /* ------------------------------------------------------------------ *
@@ -1480,6 +1590,10 @@ window.addEventListener('drop', function (e) {
   e.preventDefault();
   var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
   if (!file) return;
+  if (embedded) {
+    toast('Tento soubor už síť obsahuje. Stačí zadávat a pak Uložit HTML.');
+    return;
+  }
   if (net && Object.keys(values).length
       && !window.confirm('Načíst jinou síť? Zadané hodnoty se ztratí, pokud jste je '
                          + 'neuložil do .att.')) {
@@ -1490,6 +1604,7 @@ window.addEventListener('drop', function (e) {
 
 $('save').addEventListener('click', saveSelected);
 $('clear').addEventListener('click', clearSelected);
+$('save-html').addEventListener('click', saveHtml);
 $('export-att').addEventListener('click', function () {
   if (net) exportAtt(); else toast('Nejdřív načtěte síť.', true);
 });
@@ -1576,6 +1691,28 @@ window.addEventListener('resize', function () { resize(); draw(); });
 forgetOldStorage();
 resize();
 render();
+
+// A file saved with "Uložit HTML" carries its network, and anything already
+// typed in, inside it: open it and the work is simply there.
+(function () {
+  var slot = document.getElementById('tv-data');
+  var raw = slot ? slot.textContent.trim() : '';
+  if (!raw) { updateSaveHint(); return; }
+  try {
+    var data = JSON.parse(raw);
+    if (data.attr) {
+      $('attr').value = data.attr.all || $('attr').value;
+      $('attr-hgv').value = data.attr.hgv || $('attr-hgv').value;
+    }
+    values = data.values || {};
+    embedded = true;
+    installNetwork(data.links, { name: data.name, crs: data.crs, geo: data.geo });
+    clearSelection();
+  } catch (error) {
+    embedded = false;
+    toast('Vložená data se nepodařilo načíst: ' + (error.message || error), true);
+  }
+})();
 </script>
 </body>
 </html>

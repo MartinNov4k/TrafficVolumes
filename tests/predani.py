@@ -1,4 +1,4 @@
-"""Ověření předávací varianty: TrafficVolumesPredani.html.
+"""Ověření předávacího kolotoče v TrafficVolumes.html.
 
 Projde celý kolotoč, jak probíhá v praxi: zadavatel načte síť z Visumu a uloží
 soubor pro kolegu, kolega ho otevře a rovnou zadává (síť už v něm je a jiná se
@@ -18,7 +18,7 @@ import tempfile
 from playwright.sync_api import sync_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-APP = "file://" + os.path.join(ROOT, "TrafficVolumesPredani.html")
+APP = "file://" + os.path.join(ROOT, "TrafficVolumes.html")
 NET = os.path.join(ROOT, "samples", "sample_links.att")
 DL = sys.argv[1] if len(sys.argv) > 1 else tempfile.mkdtemp(prefix="tvol-predani-")
 LAUNCH = {"args": ["--no-sandbox"]}
@@ -101,8 +101,10 @@ with sync_playwright() as pw:
     page2.fill("#vb-all","9800"); page2.fill("#vb-hgv","700")
     page2.click("#save"); page2.wait_for_timeout(300)
     check("hodnoty zapsány", page2.evaluate("(k)=>values[k]", t["a"])=={"all":12500,"hgv":900})
-    check("tlačítko teď nabízí vrácení práce",
-          "práci" in page2.text_content("#save-html"), page2.text_content("#save-html"))
+    check("v souboru s daty se pro kolegu už neukládá",
+          "kolegu" not in page2.text_content("#save-html")
+          and "Uložit HTML" in page2.text_content("#save-html"),
+          page2.text_content("#save-html"))
     with page2.expect_download(timeout=20000) as d2:
         page2.click("#save-html")
     vyplneno = os.path.join(DL, "vyplneno.html"); d2.value.save_as(vyplneno)
