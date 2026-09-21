@@ -1,0 +1,1715 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TrafficVolumes — předání</title>
+<!-- Síť a zadané hodnoty se ukládají sem; prázdné = soubor teprve čeká na síť. -->
+<script id="tv-data" type="application/json"></script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>🚦</text></svg>">
+<style>
+:root {
+  --bg: #0f1420; --panel: #161d2c; --panel2: #1d2739; --line: #2a3648;
+  --text: #e6ebf2; --muted: #94a3b8; --accent: #4f9dff; --danger: #ff6b6b;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--bg); color: var(--text); overflow: hidden;
+}
+#app { display: flex; height: 100%; }
+.hidden { display: none !important; }
+
+#panel {
+  width: 300px; min-width: 300px; background: var(--panel);
+  border-right: 1px solid var(--line); padding: 16px;
+  display: flex; flex-direction: column; gap: 14px; overflow-y: auto;
+}
+h1 { font-size: 16px; margin: 0; }
+.muted { color: var(--muted); font-size: 12px; }
+.small { font-size: 11px; line-height: 1.35; margin: 6px 0 0; }
+
+label span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+input[type=text] {
+  width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--panel2); color: var(--text); font: inherit;
+}
+input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+button {
+  padding: 8px 12px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--panel2); color: var(--text); font: inherit; cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #05203f; font-weight: 600; }
+.buttons { display: flex; gap: 8px; }
+.buttons > * { flex: 1; }
+
+#detail { border-top: 1px solid var(--line); padding-top: 14px; }
+.dot {
+  display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+  margin-right: 6px; vertical-align: 0; border: 1px solid rgba(0,0,0,.45);
+}
+#dirs .dirblock {
+  border-left: 3px solid currentColor; padding: 2px 0 2px 10px; border-radius: 2px;
+}
+#dirs .dirblock > .caption { display: block; font-size: 12px; margin-bottom: 6px; }
+#dirs .dirblock.focused { background: rgba(255, 255, 255, .06); }
+#dirs .dirblock.focused > .caption { color: var(--text); font-weight: 600; }
+.vrow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.vrow > span { flex: 0 0 72px; font-size: 11px; color: var(--muted); }
+.vrow > input { flex: 1; min-width: 0; }
+#detail h2 { font-size: 15px; margin: 0 0 2px; }
+#dirs { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
+#panel footer { margin-top: auto; border-top: 1px solid var(--line); padding-top: 14px;
+  display: flex; flex-direction: column; gap: 8px; }
+kbd { font: 11px/1 ui-monospace, monospace; padding: 2px 4px; border-radius: 3px;
+  background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.15); }
+
+#map-wrap { position: relative; flex: 1; min-width: 0; }
+#map { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+#map.dragging { cursor: grabbing; }
+#zoom { position: absolute; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 6px; }
+#zoom button { width: 34px; height: 34px; padding: 0; background: rgba(22,29,44,.92); }
+#attrib {
+  position: absolute; right: 8px; bottom: 6px; font-size: 11px; color: var(--muted);
+  background: rgba(15,20,32,.78); padding: 2px 6px; border-radius: 4px;
+}
+#attrib a { color: var(--muted); }
+#toast { position: absolute; left: 50%; top: 14px; transform: translateX(-50%);
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 6px;
+  padding: 8px 14px; box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+#toast.error { border-color: var(--danger); color: #ffd7d7; }
+
+#drop {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: var(--bg); text-align: center; padding: 24px;
+}
+#drop .box {
+  border: 2px dashed var(--line); border-radius: 12px; padding: 40px 32px; max-width: 520px;
+}
+#drop.over .box { border-color: var(--accent); }
+#drop strong { display: block; font-size: 17px; margin-bottom: 8px; }
+#drop p { color: var(--muted); font-size: 13px; margin: 8px 0 16px; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 3px; }
+.inline { display: flex; align-items: center; gap: 7px; cursor: pointer;
+  font-size: 12px; color: var(--muted); }
+
+@media (max-width: 820px) {
+  #app { flex-direction: column; }
+  #panel { width: 100%; min-width: 0; max-height: 50%; border-right: none;
+           border-bottom: 1px solid var(--line); }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <div>
+      <h1 id="title">TrafficVolumes</h1>
+      <p class="muted" id="subtitle">Načtěte export linků z Visumu.</p>
+    </div>
+
+    <label>
+      <span>Atribut ve Visumu — všechna vozidla</span>
+      <input type="text" id="attr" value="VOL_ALL" spellcheck="false">
+    </label>
+    <label>
+      <span>Atribut ve Visumu — vozidla nad 3,5 t</span>
+      <input type="text" id="attr-hgv" value="VOL_HGV" spellcheck="false">
+    </label>
+
+    <p class="muted" id="progress"></p>
+
+    <div id="detail" class="hidden">
+      <h2 id="link-title"></h2>
+      <p class="muted" id="link-sub"></p>
+      <div id="dirs"></div>
+      <div class="buttons">
+        <button type="button" class="primary" id="save">Uložit <kbd>Enter</kbd></button>
+        <button type="button" id="clear">Vymazat</button>
+      </div>
+    </div>
+    <p class="muted" id="placeholder">Klikněte na link v mapě a zapište intenzity
+      obou směrů.</p>
+
+    <footer>
+      <div class="buttons">
+        <button type="button" class="primary" id="save-html">Uložit HTML</button>
+      </div>
+      <p class="muted small" id="save-hint"></p>
+      <div class="buttons">
+        <button type="button" id="export-att">Uložit .att</button>
+        <button type="button" id="export-png">Uložit obrázek</button>
+      </div>
+      <p class="muted" id="legend"></p>
+    </footer>
+  </aside>
+
+  <main id="map-wrap">
+    <canvas id="map"></canvas>
+    <div id="zoom" class="hidden">
+      <button type="button" id="zin" title="Přiblížit">+</button>
+      <button type="button" id="zout" title="Oddálit">−</button>
+      <button type="button" id="zfit" title="Celá síť">⤢</button>
+    </div>
+    <div id="attrib" class="hidden"></div>
+    <div id="toast" class="hidden"></div>
+    <div id="drop">
+      <div class="box">
+        <strong>Přetáhněte sem export linků z Visumu</strong>
+        <p>.att, .net, .csv nebo .geojson — nejlépe síť uloženou jako .net,
+           nebo seznam linků se sloupcem WKTPOLY.<br>
+           Nic se nikam neodesílá, vše běží ve vašem prohlížeči.</p>
+        <button type="button" id="browse">Vybrat soubor…</button>
+        <input type="file" id="file" class="hidden"
+               accept=".att,.net,.txt,.csv,.tsv,.geojson,.json">
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+'use strict';
+
+/* ------------------------------------------------------------------ *
+ * S-JTSK / Krovak -> WGS84, implemented directly because a browser has
+ * no PROJ. Verified against the EPSG 9819 worked example and PROJ.
+ * ------------------------------------------------------------------ */
+
+var EARTH_R = 6378137, MERC_HALF = Math.PI * EARTH_R;
+var A = 6377397.155, E2 = 0.006674372230614, E = Math.sqrt(E2);
+var PHI_C = 49.5 * Math.PI / 180, LAMBDA_0 = 24.83333333333333 * Math.PI / 180;
+var ALPHA_C = 30.28813975277778 * Math.PI / 180, PHI_P = 78.5 * Math.PI / 180;
+var A_K = A * Math.sqrt(1 - E2) / (1 - E2 * Math.pow(Math.sin(PHI_C), 2));
+var B_K = Math.sqrt(1 + E2 * Math.pow(Math.cos(PHI_C), 4) / (1 - E2));
+var GAMMA_0 = Math.asin(Math.sin(PHI_C) / B_K);
+var T_0 = Math.tan(Math.PI / 4 + GAMMA_0 / 2)
+  * Math.pow((1 + E * Math.sin(PHI_C)) / (1 - E * Math.sin(PHI_C)), E * B_K / 2)
+  / Math.pow(Math.tan(Math.PI / 4 + PHI_C / 2), B_K);
+var N_K = Math.sin(PHI_P), R_0 = 0.9999 * A_K / Math.tan(PHI_P);
+// Helmert Bessel -> WGS84 (PROJ's +towgs84 for S-JTSK); without it the network
+// would sit 100-200 m off.
+var HT = [570.8, 85.7, 462.8], HS = 3.56e-6;
+var HR = [4.998, 1.587, 5.261].map(function (v) { return v / 3600 * Math.PI / 180; });
+
+function toGeocentric(lon, lat, a, f) {
+  var e2 = f * (2 - f), phi = lat * Math.PI / 180, lam = lon * Math.PI / 180;
+  var n = a / Math.sqrt(1 - e2 * Math.pow(Math.sin(phi), 2));
+  return [n * Math.cos(phi) * Math.cos(lam), n * Math.cos(phi) * Math.sin(lam),
+          n * (1 - e2) * Math.sin(phi)];
+}
+function toGeodetic(x, y, z, a, f) {
+  var e2 = f * (2 - f), lam = Math.atan2(y, x), p = Math.hypot(x, y);
+  var phi = Math.atan2(z, p * (1 - e2));
+  for (var i = 0; i < 8; i++) {
+    var n = a / Math.sqrt(1 - e2 * Math.pow(Math.sin(phi), 2)), prev = phi;
+    phi = Math.atan2(z + e2 * n * Math.sin(phi), p);
+    if (Math.abs(phi - prev) < 1e-13) break;
+  }
+  return [lam * 180 / Math.PI, phi * 180 / Math.PI];
+}
+function krovakToWgs84(southing, westing) {
+  var r = Math.hypot(southing, westing);
+  if (!r) throw new Error('Krovak origin');
+  var d = Math.atan2(westing, southing) / N_K;
+  var t = 2 * (Math.atan(Math.pow(R_0 / r, 1 / N_K)
+    * Math.tan(Math.PI / 4 + PHI_P / 2)) - Math.PI / 4);
+  var u = Math.asin(Math.cos(ALPHA_C) * Math.sin(t)
+    - Math.sin(ALPHA_C) * Math.cos(t) * Math.cos(d));
+  var v = Math.asin(Math.cos(t) * Math.sin(d) / Math.cos(u));
+  var phi = u;
+  for (var i = 0; i < 12; i++) {
+    var prev = phi;
+    phi = 2 * (Math.atan(Math.pow(T_0, -1 / B_K)
+      * Math.pow(Math.tan(u / 2 + Math.PI / 4), 1 / B_K)
+      * Math.pow((1 + E * Math.sin(phi)) / (1 - E * Math.sin(phi)), E / 2)) - Math.PI / 4);
+    if (Math.abs(phi - prev) < 1e-13) break;
+  }
+  var g = toGeocentric((LAMBDA_0 - v / B_K) * 180 / Math.PI, phi * 180 / Math.PI,
+                       6377397.155, 1 / 299.1528128);
+  var s = 1 + HS;
+  return toGeodetic(
+    HT[0] + s * (g[0] - HR[2] * g[1] + HR[1] * g[2]),
+    HT[1] + s * (HR[2] * g[0] + g[1] - HR[0] * g[2]),
+    HT[2] + s * (-HR[1] * g[0] + HR[0] * g[1] + g[2]),
+    6378137.0, 1 / 298.257223563);
+}
+function toMercator(lon, lat) {
+  var c = Math.max(-85.05112878, Math.min(85.05112878, lat));
+  return [lon * Math.PI / 180 * EARTH_R,
+          Math.log(Math.tan(Math.PI / 4 + c * Math.PI / 360)) * EARTH_R];
+}
+
+/** Guess the coordinate system, then return a transform to (lon, lat). */
+function makeProjector(samples) {
+  var pts = samples.filter(function (p) { return isFinite(p[0]) && isFinite(p[1]); });
+  function frac(f) {
+    var n = 0;
+    pts.forEach(function (p) { if (f(p[0], p[1])) n++; });
+    return pts.length ? n / pts.length : 0;
+  }
+  if (frac(function (x, y) { return Math.abs(x) <= 180 && Math.abs(y) <= 90; }) > 0.98) {
+    return { name: 'WGS84', geo: true, fn: function (x, y) { return [x, y]; } };
+  }
+  if (frac(function (x, y) {
+    return x > -950000 && x < -400000 && y > -1300000 && y < -900000;
+  }) > 0.9) {
+    // EPSG:5514, east-north: easting = -westing, northing = -southing.
+    return { name: 'S-JTSK (EPSG:5514)', geo: true,
+             fn: function (x, y) { return krovakToWgs84(-y, -x); } };
+  }
+  if (frac(function (x, y) {
+    return x > 900000 && x < 1300000 && y > 400000 && y < 950000;
+  }) > 0.9) {
+    return { name: 'S-JTSK (EPSG:5513)', geo: true,
+             fn: function (x, y) { return krovakToWgs84(x, y); } };
+  }
+  // Anything else stays as it is and the map becomes a plain cartesian view.
+  return { name: 'místní souřadnice', geo: false,
+           fn: function (x, y) { return [x, y]; } };
+}
+
+/* ------------------------------------------------------------------ *
+ * Reading Visum exports
+ * ------------------------------------------------------------------ */
+
+function decode(buffer) {
+  var bytes = new Uint8Array(buffer);
+  if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+    return new TextDecoder('utf-8').decode(bytes.subarray(3));
+  }
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
+  catch (e) { return new TextDecoder('windows-1250').decode(bytes); }  // Visum on CZ Windows
+}
+
+function num(value) {
+  if (value === null || value === undefined) return null;
+  var m = /^[+-]?(?:\d[\d.,]*|[.,]\d+)(?:[eE][+-]?\d+)?/.exec(String(value).trim());
+  if (!m) return null;
+  var s = m[0].replace(/[.,]+$/, '');
+  var dot = s.lastIndexOf('.'), comma = s.lastIndexOf(',');
+  if (dot >= 0 && comma >= 0) {          // both: the rightmost one is decimal
+    var at = Math.max(dot, comma);
+    s = s.slice(0, at).replace(/[.,]/g, '') + '.' + s.slice(at + 1).replace(/[.,]/g, '');
+  } else if (dot >= 0 || comma >= 0) {   // one: treat it as the decimal separator
+    var sep = dot >= 0 ? '.' : ',';
+    var i = s.lastIndexOf(sep);
+    s = s.slice(0, i).split(sep).join('') + '.' + s.slice(i + 1);
+  }
+  var v = parseFloat(s);
+  return isFinite(v) ? v : null;
+}
+
+function splitRow(line, sep) {
+  if (line.indexOf('"') < 0) {
+    return line.split(sep).map(function (c) { return c.trim(); });
+  }
+  var out = [], cur = '', q = false;
+  for (var i = 0; i < line.length; i++) {
+    var ch = line[i];
+    if (ch === '"') {
+      if (q && line[i + 1] === '"') { cur += '"'; i++; continue; }
+      q = !q;
+    } else if (ch === sep && !q) { out.push(cur.trim()); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
+}
+
+function guessSep(header) {
+  var body = header.indexOf(':') >= 0 ? header.slice(header.indexOf(':') + 1) : header;
+  var best = ';', n = 0;
+  [';', '\t', ','].forEach(function (s) {
+    var c = body.split(s).length - 1;
+    if (c > n) { n = c; best = s; }
+  });
+  return best;
+}
+
+/** Parse the $TABLE blocks of an attribute or network file. */
+function parseAtt(text) {
+  var tables = [], cur = null;
+  text.split(/\r\n|\r|\n/).forEach(function (raw) {
+    var line = raw.replace(/^﻿/, ''), s = line.trim();
+    if (!s || s[0] === '*') return;
+    if (s[0] === '$') {
+      if (s.indexOf(':') < 0) { cur = null; return; }
+      var at = s.indexOf(':'), sep = guessSep(s);
+      cur = {
+        name: s.slice(1, at).trim().toUpperCase(), sep: sep,
+        cols: s.slice(at + 1).split(sep).map(function (c) {
+          return c.trim().replace(/^"|"$/g, '');
+        }).filter(Boolean),
+        rows: []
+      };
+      tables.push(cur);
+      return;
+    }
+    if (!cur) return;
+    var cells = splitRow(line, cur.sep), row = {};
+    cur.cols.forEach(function (c, i) { row[c] = cells[i] === undefined ? '' : cells[i]; });
+    cur.rows.push(row);
+  });
+  return tables;
+}
+
+function findTable(tables, names) {
+  for (var i = 0; i < tables.length; i++) {
+    if (names.indexOf(tables[i].name) >= 0) return tables[i];
+  }
+  return null;
+}
+
+var ALIASES = {
+  no: ['NO', 'LINKNO', 'LINK_NO'],
+  from: ['FROMNODENO', 'FROMNODE', 'ANODE'],
+  to: ['TONODENO', 'TONODE', 'BNODE'],
+  name: ['NAME', 'STREETNAME', 'NAZEV'],
+  wkt: ['WKTPOLY', 'WKT', 'GEOMETRY'],
+  xf: ['FROMNODE\\XCOORD', 'XCOORDFROM', 'XFROM'],
+  yf: ['FROMNODE\\YCOORD', 'YCOORDFROM', 'YFROM'],
+  xt: ['TONODE\\XCOORD', 'XCOORDTO', 'XTO'],
+  yt: ['TONODE\\YCOORD', 'YCOORDTO', 'YTO']
+};
+function normName(name) { return String(name).replace(/[\s_]/g, '').toUpperCase(); }
+
+function findCol(cols, name) {
+  var wanted = normName(name);
+  for (var i = 0; i < cols.length; i++) {
+    if (normName(cols[i]) === wanted) return cols[i];
+  }
+  return null;
+}
+
+function col(cols, role) {
+  var list = ALIASES[role];
+  for (var i = 0; i < list.length; i++) {
+    var hit = findCol(cols, list[i]);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+// Visum can export a link together with its opposite direction in one row, the
+// reverse attributes carrying a prefix (the ReverseLink relation). Then the
+// second direction is in the file already and needs no guessing.
+var REVERSE_PREFIXES = ['R_', 'REV_', 'REVERSE_', 'REVERSELINK\\'];
+
+function reversePrefix(cols) {
+  for (var i = 0; i < REVERSE_PREFIXES.length; i++) {
+    var p = REVERSE_PREFIXES[i];
+    if (findCol(cols, p + 'FROMNODENO') && findCol(cols, p + 'TONODENO')) return p;
+  }
+  return null;
+}
+
+function dedupe(points) {
+  var out = [];
+  points.forEach(function (p) {
+    var last = out[out.length - 1];
+    if (!last || Math.abs(p[0] - last[0]) > 1e-9 || Math.abs(p[1] - last[1]) > 1e-9) {
+      out.push([+p[0], +p[1]]);
+    }
+  });
+  return out;
+}
+
+function parseWkt(text) {
+  if (!text) return [];
+  var m = /(?:MULTI)?LINESTRING\s*Z?\s*M?\s*\(/i.exec(text);
+  if (!m) return [];
+  var body = text.slice(m.index + m[0].length - 1), depth = 0, end = body.length;
+  for (var i = 0; i < body.length; i++) {
+    if (body[i] === '(') depth++;
+    else if (body[i] === ')' && --depth === 0) { end = i; break; }
+  }
+  var pts = [];
+  body.slice(1, end).replace(/\(/g, ' ').replace(/\)/g, ',').split(',').forEach(function (c) {
+    var p = c.trim().split(/\s+/);
+    if (p.length >= 2 && isFinite(+p[0]) && isFinite(+p[1])) pts.push([+p[0], +p[1]]);
+  });
+  return dedupe(pts);
+}
+
+/** Turn any supported export into one record per link direction. */
+function readNetwork(fileName, text) {
+  var suffix = (fileName.split('.').pop() || '').toLowerCase();
+  var rows, cols, nodes = {}, polys = {}, wktCol = null;
+
+  if (suffix === 'geojson' || (suffix === 'json')) {
+    var data = JSON.parse(text);
+    if (!data.features) throw new Error('Soubor není GeoJSON FeatureCollection.');
+    rows = [];
+    var seen = {};
+    data.features.forEach(function (f) {
+      var g = f.geometry || {}, t = String(g.type || '').toLowerCase(), pts = [];
+      if (t === 'linestring') pts = g.coordinates || [];
+      else if (t === 'multilinestring') (g.coordinates || []).forEach(function (part) {
+        pts = pts.concat(part);
+      });
+      else return;
+      pts = dedupe(pts.filter(function (c) { return c.length >= 2; }));
+      if (pts.length < 2) return;
+      var row = Object.assign({}, f.properties || {});
+      Object.keys(row).forEach(function (k) { seen[k] = true; });
+      row.__G__ = pts;
+      rows.push(row);
+    });
+    cols = Object.keys(seen);
+    wktCol = '__G__';
+  } else if (suffix === 'csv' || suffix === 'tsv') {
+    var lines = text.split(/\r\n|\r|\n/).filter(function (l) {
+      return l.trim() && l.trim()[0] !== '*';
+    });
+    if (!lines.length) throw new Error('Soubor je prázdný.');
+    var sep = guessSep(lines[0]);
+    cols = splitRow(lines[0].replace(/^﻿/, ''), sep);
+    rows = lines.slice(1).map(function (l) {
+      var cells = splitRow(l, sep), row = {};
+      cols.forEach(function (c, i) { row[c] = cells[i] === undefined ? '' : cells[i]; });
+      return row;
+    });
+  } else {
+    var tables = parseAtt(text);
+    var link = findTable(tables, ['LINK', 'LINKS', 'STRECKE', 'STRECKEN']);
+    if (!link) {
+      throw new Error('V souboru není tabulka $LINK (nalezeno: '
+        + (tables.map(function (t) { return t.name; }).join(', ') || 'nic') + ').');
+    }
+    cols = link.cols;
+    rows = link.rows;
+
+    var nodeTable = findTable(tables, ['NODE', 'NODES', 'KNOTEN']);
+    if (nodeTable) {
+      var nno = col(nodeTable.cols, 'no'), nx = null, ny = null;
+      nodeTable.cols.forEach(function (c) {
+        var u = c.toUpperCase();
+        if (u === 'XCOORD' || u === 'X') nx = nx || c;
+        if (u === 'YCOORD' || u === 'Y') ny = ny || c;
+      });
+      if (nno && nx && ny) nodeTable.rows.forEach(function (r) {
+        var x = num(r[nx]), y = num(r[ny]);
+        if (x !== null && y !== null) nodes[String(r[nno]).trim()] = [x, y];
+      });
+    }
+    var polyTable = findTable(tables, ['LINKPOLY']);
+    if (polyTable) {
+      var map = {};
+      polyTable.cols.forEach(function (c) { map[c.toUpperCase()] = c; });
+      var pl = map.LINKNO || map.NO, pf = map.FROMNODENO, pt = map.TONODENO;
+      var pi = map.INDEX, px = map.XCOORD || map.X, py = map.YCOORD || map.Y;
+      if (pl && pf && pt && px && py) {
+        var buckets = {};
+        polyTable.rows.forEach(function (r, i) {
+          var x = num(r[px]), y = num(r[py]);
+          if (x === null || y === null) return;
+          var k = [String(r[pl]).trim(), String(r[pf]).trim(), String(r[pt]).trim()].join('|');
+          (buckets[k] = buckets[k] || []).push({ o: pi ? num(r[pi]) : i, p: [x, y] });
+        });
+        Object.keys(buckets).forEach(function (k) {
+          polys[k] = buckets[k].sort(function (a, b) { return a.o - b.o; })
+            .map(function (e) { return e.p; });
+        });
+      }
+    }
+  }
+
+  var cNo = col(cols, 'no'), cFrom = col(cols, 'from'), cTo = col(cols, 'to');
+  if (!cNo || !cFrom || !cTo) {
+    throw new Error('Export musí obsahovat sloupce NO, FROMNODENO a TONODENO. Nalezeno: '
+      + (cols.join(', ') || 'nic'));
+  }
+  wktCol = wktCol || col(cols, 'wkt');
+  var cName = col(cols, 'name');
+  var cxf = col(cols, 'xf'), cyf = col(cols, 'yf'), cxt = col(cols, 'xt'), cyt = col(cols, 'yt');
+
+  // Opposite direction carried in the same row, if the export has it.
+  var prefix = reversePrefix(cols);
+  var rNo = prefix && findCol(cols, prefix + 'NO');
+  var rFrom = prefix && findCol(cols, prefix + 'FROMNODENO');
+  var rTo = prefix && findCol(cols, prefix + 'TONODENO');
+  // An empty TSysSet is how Visum says a direction is closed to everything,
+  // which is what makes a link one-way.
+  var cTsys = findCol(cols, 'TSYSSET');
+  var rTsys = prefix && findCol(cols, prefix + 'TSYSSET');
+
+  var links = [], skipped = 0;
+  rows.forEach(function (row) {
+    var no = String(row[cNo] || '').trim();
+    var from = String(row[cFrom] || '').trim();
+    var to = String(row[cTo] || '').trim();
+    if (!no || !from || !to) { skipped++; return; }
+
+    var geom = [];
+    if (wktCol) {
+      geom = wktCol === '__G__' ? row.__G__ : parseWkt(String(row[wktCol] || ''));
+    }
+    if (!geom.length) {
+      var a = nodes[from], b = nodes[to];
+      var mid = polys[[no, from, to].join('|')];
+      if (!mid) {
+        var rev = polys[[no, to, from].join('|')];
+        mid = rev ? rev.slice().reverse() : [];
+      }
+      if (a && b) geom = dedupe([a].concat(mid, [b]));
+    }
+    if (!geom.length && cxf && cyf && cxt && cyt) {
+      var x1 = num(row[cxf]), y1 = num(row[cyf]), x2 = num(row[cxt]), y2 = num(row[cyt]);
+      if (x1 !== null && y1 !== null && x2 !== null && y2 !== null) {
+        geom = dedupe([[x1, y1], [x2, y2]]);
+      }
+    }
+    if (geom.length < 2) { skipped++; return; }
+    var name = cName ? String(row[cName] || '').trim() : '';
+    links.push({
+      no: no, from: from, to: to, key: no + '|' + from + '|' + to,
+      name: name, geom: geom,
+      closed: cTsys ? String(row[cTsys] || '').trim() === '' : false
+    });
+
+    if (rFrom && rTo) {
+      var rf = String(row[rFrom] || '').trim();
+      var rt = String(row[rTo] || '').trim();
+      var rn = rNo ? String(row[rNo] || '').trim() : no;
+      if (rf && rt) {
+        links.push({
+          no: rn || no, from: rf, to: rt, key: (rn || no) + '|' + rf + '|' + rt,
+          name: name, geom: geom.slice().reverse(),
+          closed: rTsys ? String(row[rTsys] || '').trim() === '' : false
+        });
+      }
+    }
+  });
+
+  if (!links.length) {
+    throw new Error('Nepodařilo se sestavit geometrii. Exportujte linky se sloupcem '
+      + 'WKTPOLY, nebo uložte celou síť, aby obsahovala tabulku $NODE.');
+  }
+
+  // Visum writes the same polyline for both directions, so the reverse one is
+  // flipped here; the map then offsets it to the correct side of the road.
+  var byNo = {};
+  links.forEach(function (l) { (byNo[l.no] = byNo[l.no] || []).push(l); });
+  Object.keys(byNo).forEach(function (no) {
+    var group = byNo[no], ref = group[0];
+    for (var i = 1; i < group.length; i++) {
+      var l = group[i];
+      if (l.from === ref.to && l.to === ref.from
+          && Math.abs(l.geom[0][0] - ref.geom[0][0]) < 1e-6
+          && Math.abs(l.geom[0][1] - ref.geom[0][1]) < 1e-6) {
+        l.geom = l.geom.slice().reverse();
+      }
+    }
+  });
+
+  // A direction closed to every transport system is how Visum writes a one-way
+  // street. It is dropped only when the opposite direction is open: when both
+  // are closed the export says nothing useful about which way traffic runs, so
+  // the link stays two-way rather than vanishing from the map.
+  var byKey = {};
+  links.forEach(function (l) { byKey[l.key] = l; });
+  var oneWay = 0;
+  links = links.filter(function (l) {
+    var other = byKey[l.no + '|' + l.to + '|' + l.from];
+    if (l.closed && other && !other.closed) { oneWay++; return false; }
+    return true;
+  });
+
+  // A link list is often exported with one row per link rather than one per
+  // direction, and without the reverse columns. The opposite direction is then
+  // missing from the file even though the link carries traffic both ways, so it
+  // is created here with the polyline reversed. When the export does contain
+  // mirrored rows it is already per direction and nothing is added.
+  byKey = {};
+  links.forEach(function (l) { byKey[l.key] = l; });
+  var mirrored = links.filter(function (l) {
+    return byKey[l.no + '|' + l.to + '|' + l.from];
+  }).length;
+
+  var added = 0;
+  if (!mirrored) {
+    var both = [];
+    links.forEach(function (l) {
+      both.push(l);
+      both.push({
+        no: l.no, from: l.to, to: l.from, key: l.no + '|' + l.to + '|' + l.from,
+        name: l.name, geom: l.geom.slice().reverse(), closed: false
+      });
+      added++;
+    });
+    links = both;
+  }
+  return { links: links, skipped: skipped, added: added, oneWay: oneWay };
+}
+
+/* ------------------------------------------------------------------ *
+ * State
+ * ------------------------------------------------------------------ */
+
+// One colour for a direction that has a number, one for a direction that does
+// not. The number itself is written next to the line, so colouring by size on
+// top of that only makes the picture busier.
+var FILLED_COLOUR = '#22a355';
+var EMPTY_COLOUR = '#8b96a8';
+// One colour per direction of the selected link, matched by a dot next to its
+// input, so it is never in doubt which line a number belongs to. Both are well
+// clear of the green-to-red value ramp.
+var DIR_COLOURS = ['#4f9dff', '#c77dff'];
+// The background map. A page opened from a file:// URL sends no Referer header
+// and a script cannot add one, so services that insist on identifying the
+// application refuse the tiles - which is what OpenStreetMap's own servers do.
+// Esri serves them. Point these at another XYZ service to use a different one.
+var TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/'
+  + 'World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+var TILE_ATTRIB = 'Esri, HERE, Garmin, © <a href="https://www.openstreetmap.org/copyright"'
+  + ' target="_blank" rel="noopener">OpenStreetMap</a> přispěvatelé';
+var TILE_ATTRIB_TEXT = 'Esri, © OpenStreetMap';
+
+var net = null;          // {links, byKey, order, bbox, name, crs, geo}
+var embedded = false;    // true once this file carries a network of its own
+// direction key -> {all: number|undefined, hgv: number|undefined}
+var values = {};
+var dirInputs = {};      // direction key -> {all: input, hgv: input, block: element}
+var selected = null;     // the pair currently being edited
+var focusedKey = null;   // the direction whose input has the cursor
+var maxValue = 1;
+var basemapOn = false;
+var tiles = {}, tileOrder = [];
+var tilesLoaded = 0;      // how many tiles actually arrived
+var tileMode = null;      // null until probed, then 'cors' or 'plain'
+var tilesTainted = false; // true when tiles are loaded without CORS
+
+var $ = function (id) { return document.getElementById(id); };
+
+function toast(text, isError) {
+  var el = $('toast');
+  el.textContent = text;
+  el.classList.toggle('error', !!isError);
+  el.classList.remove('hidden');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(function () { el.classList.add('hidden'); }, isError ? 6000 : 2000);
+}
+
+/** Both directions of a link, in a stable order so the form never flips. */
+function pairOf(key) {
+  var link = net.byKey[key];
+  var reverse = net.byKey[link.no + '|' + link.to + '|' + link.from];
+  if (!reverse) return { a: link, b: null };
+  return net.order[link.key] <= net.order[reverse.key]
+    ? { a: link, b: reverse } : { a: reverse, b: link };
+}
+
+/**
+ * Nothing is kept between sessions: the values live only in this page for as
+ * long as it is open, and leave it through the .att and the image. Earlier
+ * builds mirrored them into the browser's storage, so anything left there is
+ * cleared once, otherwise old numbers would turn up out of nowhere.
+ */
+function forgetOldStorage() {
+  try {
+    Object.keys(localStorage).forEach(function (key) {
+      if (key.indexOf('tvol:') === 0) localStorage.removeItem(key);
+    });
+  } catch (e) { /* private window or storage disabled */ }
+}
+
+function recomputeMax() {
+  maxValue = 1;
+  Object.keys(values).forEach(function (k) {
+    var total = totalOf(k);
+    if (total !== undefined && total > maxValue) maxValue = total;
+  });
+}
+
+function updateProgress() {
+  updateSaveHint();
+  var filled = Object.keys(values).filter(hasValue).length;
+  $('progress').textContent = filled + ' z ' + net.links.length + ' směrů vyplněno';
+}
+
+/* ------------------------------------------------------------------ *
+ * Map
+ * ------------------------------------------------------------------ */
+
+var canvas = $('map'), ctx = canvas.getContext('2d');
+var view = { cx: 0, cy: 0, scale: 1, w: 1, h: 1, dpr: Math.min(devicePixelRatio || 1, 2) };
+var frame = null;
+
+function resize() {
+  var r = canvas.getBoundingClientRect();
+  view.w = Math.max(1, Math.round(r.width));
+  view.h = Math.max(1, Math.round(r.height));
+  canvas.width = Math.round(view.w * view.dpr);
+  canvas.height = Math.round(view.h * view.dpr);
+  ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+}
+
+function toScreen(x, y) {
+  return [(x - view.cx) * view.scale + view.w / 2, view.h / 2 - (y - view.cy) * view.scale];
+}
+function toWorld(sx, sy) {
+  return [(sx - view.w / 2) / view.scale + view.cx, view.cy - (sy - view.h / 2) / view.scale];
+}
+
+function fitAll() {
+  if (!net) return;
+  var b = net.bbox;
+  view.cx = (b[0] + b[2]) / 2;
+  view.cy = (b[1] + b[3]) / 2;
+  view.scale = Math.min((view.w - 90) / Math.max(b[2] - b[0], 1e-6),
+                        (view.h - 90) / Math.max(b[3] - b[1], 1e-6));
+  if (!isFinite(view.scale) || view.scale <= 0) view.scale = 1;
+  draw();
+}
+
+function zoomBy(factor, ax, ay) {
+  ax = ax === undefined ? view.w / 2 : ax;
+  ay = ay === undefined ? view.h / 2 : ay;
+  var before = toWorld(ax, ay);
+  view.scale = Math.max(1e-9, Math.min(view.scale * factor, 1e7));
+  var after = toWorld(ax, ay);
+  view.cx += before[0] - after[0];
+  view.cy += before[1] - after[1];
+  draw();
+}
+
+/** Total for all vehicles, which is what sizes and labels the line. */
+function totalOf(key) {
+  var v = values[key];
+  return v && v.all !== undefined ? v.all : undefined;
+}
+function hgvOf(key) {
+  var v = values[key];
+  return v && v.hgv !== undefined ? v.hgv : undefined;
+}
+function hasValue(key) {
+  return totalOf(key) !== undefined || hgvOf(key) !== undefined;
+}
+
+function widthOf(link) {
+  var v = totalOf(link.key);
+  if (v === undefined) return hasValue(link.key) ? 3 : 3;
+  // Kept modest: wide bands crowd each other and cover the numbers.
+  return 2 + 8 * Math.sqrt(Math.max(0, v) / maxValue);
+}
+function colourOf(link) {
+  return hasValue(link.key) ? FILLED_COLOUR : EMPTY_COLOUR;
+}
+
+/** "12 500 / 800": all vehicles, then those over 3.5 t. */
+function labelOf(key) {
+  var total = totalOf(key);
+  var hgv = hgvOf(key);
+  if (total !== undefined && hgv !== undefined) {
+    return total.toLocaleString('cs-CZ') + ' / ' + hgv.toLocaleString('cs-CZ');
+  }
+  if (total !== undefined) return total.toLocaleString('cs-CZ');
+  // A dash keeps the second figure in its place when the total is missing.
+  return '– / ' + hgv.toLocaleString('cs-CZ');
+}
+
+/** Project a direction and push it to the right hand side of travel. */
+function screenPath(link, offset) {
+  var pts = link.world.map(function (p) { return toScreen(p[0], p[1]); });
+  if (!offset) return pts;
+  return pts.map(function (p, i) {
+    var nx = 0, ny = 0;
+    [[i - 1, i], [i, i + 1]].forEach(function (seg) {
+      if (seg[0] < 0 || seg[1] >= pts.length) return;
+      var dx = pts[seg[1]][0] - pts[seg[0]][0], dy = pts[seg[1]][1] - pts[seg[0]][1];
+      var len = Math.hypot(dx, dy);
+      if (len < 1e-9) return;
+      // Screen y points down, so (x,y) -> (-y,x) is the right of travel.
+      nx += -dy / len; ny += dx / len;
+    });
+    var n = Math.hypot(nx, ny);
+    return n < 1e-9 ? p : [p[0] + nx / n * offset, p[1] + ny / n * offset];
+  });
+}
+
+/**
+ * A big arrow along the direction being edited, so which way it runs is
+ * obvious at a glance. Drawn white over the coloured line, outlined dark so it
+ * survives a light background map.
+ */
+function markFocusedDirection() {
+  var link = focusedKey && net.byKey[focusedKey];
+  if (!link || !link.screen || !selected) return;
+  var pts = link.screen;
+  var j = Math.max(1, Math.floor(pts.length / 2));
+  var a = pts[j - 1], bpt = pts[j];
+  var dx = bpt[0] - a[0], dy = bpt[1] - a[1], len = Math.hypot(dx, dy) || 1;
+  var ux = dx / len, uy = dy / len;
+  var cx = (a[0] + bpt[0]) / 2, cy = (a[1] + bpt[1]) / 2;
+
+  var size = Math.max(9, Math.min(16, Math.max(link.width, 7) * 1.7));
+  var tipX = cx + ux * size * 0.6, tipY = cy + uy * size * 0.6;
+  var backX = cx - ux * size * 0.6, backY = cy - uy * size * 0.6;
+
+  ctx.beginPath();
+  ctx.moveTo(tipX, tipY);
+  ctx.lineTo(backX - uy * size * 0.62, backY + ux * size * 0.62);
+  ctx.lineTo(backX + uy * size * 0.62, backY - ux * size * 0.62);
+  ctx.closePath();
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(8,16,29,.9)';
+  ctx.stroke();
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+}
+
+function stroke(pts, colour, width, alpha) {
+  if (!pts || pts.length < 2) return;
+  ctx.globalAlpha = alpha === undefined ? 1 : alpha;
+  ctx.strokeStyle = colour;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+function arrow(link) {
+  var pts = link.screen;
+  if (!pts || pts.length < 2) return;
+  var end = pts[pts.length - 1], prev = pts[pts.length - 2];
+  var dx = end[0] - prev[0], dy = end[1] - prev[1], len = Math.hypot(dx, dy);
+  if (len < 12) return;
+  var ux = dx / len, uy = dy / len;
+  var tx = end[0] - ux * 6, ty = end[1] - uy * 6;
+  var s = Math.max(5, Math.min(9, link.width + 3));
+  ctx.fillStyle = colourOf(link);
+  ctx.beginPath();
+  ctx.moveTo(tx, ty);
+  ctx.lineTo(tx - ux * s - uy * s * 0.5, ty - uy * s + ux * s * 0.5);
+  ctx.lineTo(tx - ux * s + uy * s * 0.5, ty - uy * s - ux * s * 0.5);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function boxesOverlap(a, b) {
+  return !(a[2] < b[0] || a[0] > b[2] || a[3] < b[1] || a[1] > b[3]);
+}
+
+function drawNetwork() {
+  var a = toWorld(0, view.h), b = toWorld(view.w, 0), m = 200 / view.scale;
+  var visible = [];
+  net.links.forEach(function (link) {
+    var bb = link.bbox;
+    if (bb[2] < a[0] - m || bb[0] > b[0] + m || bb[3] < a[1] - m || bb[1] > b[1] + m) {
+      link.screen = null;
+      return;
+    }
+    link.width = widthOf(link);
+    link.screen = screenPath(link, link.width / 2 + 1.5);
+    visible.push(link);
+  });
+  net.visible = visible;
+
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  // Filled directions go on top so they stay readable over the grey ones.
+  // With a link selected everything else steps back, so the pair being edited
+  // is impossible to miss.
+  ctx.globalAlpha = selected ? 0.4 : 1;
+  [false, true].forEach(function (filled) {
+    visible.forEach(function (link) {
+      if (hasValue(link.key) !== filled) return;
+      if (selected && (link === selected.a || link === selected.b)) return;
+      stroke(link.screen, colourOf(link), link.width);
+    });
+  });
+  visible.forEach(function (link) {
+    if (selected && (link === selected.a || link === selected.b)) return;
+    arrow(link);
+  });
+  ctx.globalAlpha = 1;
+
+  if (selected) {
+    // Draw the other direction first so the one being edited sits on top.
+    [selected.b, selected.a].forEach(function (link) {
+      if (!link || !link.screen) return;
+      var i = link === selected.a ? 0 : 1;
+      var focused = link.key === focusedKey;
+      var w = Math.max(link.width, focused ? 7 : 4);
+      if (focused) {
+        // Halo, dark separator, then the line itself in the direction's own
+        // colour: the edited direction reads as a different object entirely.
+        stroke(link.screen, DIR_COLOURS[i], w + 14, 0.28);
+        stroke(link.screen, DIR_COLOURS[i], w + 8, 0.6);
+        stroke(link.screen, '#0c111b', w + 4, 1);
+        stroke(link.screen, DIR_COLOURS[i], w, 1);
+      } else {
+        stroke(link.screen, DIR_COLOURS[i], w + 5, 0.5);
+        stroke(link.screen, '#0c111b', w + 2, 0.85);
+        stroke(link.screen, colourOf(link), link.width, 1);
+      }
+      arrow(link);
+    });
+    markFocusedDirection();
+  }
+
+  // Values, each pushed to its own side, dropping anything that would collide.
+  ctx.font = '600 11px "Segoe UI", system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(8,12,20,.85)';
+  var placed = [], drawn = 0;
+  visible.forEach(function (link) {
+    if (!hasValue(link.key) || drawn >= 600) return;
+    var pts = link.screen;
+    if (Math.hypot(pts[pts.length - 1][0] - pts[0][0],
+                   pts[pts.length - 1][1] - pts[0][1]) < 34) return;
+    var i = Math.max(1, Math.floor(pts.length / 2));
+    var p = pts[i - 1], q = pts[i];
+    var dx = q[0] - p[0], dy = q[1] - p[1], len = Math.hypot(dx, dy) || 1;
+    var push = link.width / 2 + 8;
+    var cx = (p[0] + q[0]) / 2 - dy / len * push;
+    var cy = (p[1] + q[1]) / 2 + dx / len * push;
+    var text = labelOf(link.key);
+    var half = ctx.measureText(text).width / 2 + 2;
+    var box = [cx - half, cy - 7, cx + half, cy + 7];
+    if (placed.some(function (o) { return boxesOverlap(box, o); })) return;
+    placed.push(box);
+    ctx.strokeText(text, cx, cy);
+    ctx.fillStyle = '#eef3fa';
+    ctx.fillText(text, cx, cy);
+    drawn++;
+  });
+}
+
+function tileUrl(z, x, y) {
+  return TILE_URL.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+}
+
+/**
+ * Work out once how this tile server has to be talked to.
+ *
+ * A crossOrigin load keeps the canvas clean, which is what lets the background
+ * go into the exported image. Many tile servers send no CORS headers, and the
+ * browser then refuses the image outright - that is the "blocked" message.
+ * Leaflet, and so Folium, sidesteps the whole question by loading tiles as
+ * ordinary images, which always works but taints the canvas. So: ask once with
+ * the small world tile, and use the answer for every tile afterwards, instead
+ * of letting each one fail first.
+ */
+function probeTileMode(done) {
+  if (tileMode) { done(); return; }
+  var img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = function () { tileMode = 'cors'; done(); };
+  img.onerror = function () {
+    tileMode = 'plain';
+    tilesTainted = true;
+    done();
+  };
+  img.src = tileUrl(0, 0, 0);
+}
+
+/** One XYZ tile, fetched once and redrawn from cache afterwards. */
+function tile(z, x, y) {
+  var id = z + '/' + x + '/' + y;
+  if (tiles[id]) return tiles[id];
+  if (tileOrder.length > 400) {
+    tileOrder.splice(0, 100).forEach(function (k) { delete tiles[k]; });
+  }
+  var img = new Image();
+  if (tileMode === 'cors') img.crossOrigin = 'anonymous';
+  img.onload = function () { tilesLoaded++; draw(); };
+  img.onerror = function () { img.failed = true; };
+  img.src = tileUrl(z, x, y);
+  tiles[id] = img;
+  tileOrder.push(id);
+  return img;
+}
+
+function drawTiles() {
+  if (!tileMode) return;          // still asking the server how to load tiles
+  var z = Math.round(Math.log(2 * MERC_HALF * view.scale / 256) / Math.LN2);
+  z = Math.max(0, Math.min(19, z));
+  var n = Math.pow(2, z);
+  var span = (2 * MERC_HALF) / n;
+  var tl = toWorld(0, 0), br = toWorld(view.w, view.h);
+  var x0 = Math.floor((tl[0] + MERC_HALF) / span), x1 = Math.ceil((br[0] + MERC_HALF) / span);
+  var y0 = Math.floor((MERC_HALF - tl[1]) / span), y1 = Math.ceil((MERC_HALF - br[1]) / span);
+  var size = span * view.scale;
+  for (var ty = y0; ty < y1; ty++) {
+    if (ty < 0 || ty >= n) continue;
+    for (var tx = x0; tx < x1; tx++) {
+      var img = tile(z, ((tx % n) + n) % n, ty);
+      if (!img.complete || !img.naturalWidth) continue;
+      var at = toScreen(tx * span - MERC_HALF, MERC_HALF - ty * span);
+      ctx.drawImage(img, at[0], at[1], size + 1, size + 1);
+    }
+  }
+}
+
+function render() {
+  ctx.clearRect(0, 0, view.w, view.h);
+  ctx.fillStyle = '#0c111b';
+  ctx.fillRect(0, 0, view.w, view.h);
+  if (net && basemapOn && net.geo) drawTiles();
+  if (net) drawNetwork();
+}
+
+function draw() {
+  if (frame) return;
+  frame = requestAnimationFrame(function () { frame = null; render(); });
+}
+
+function distToSegment(px, py, a, b) {
+  var dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+  if (l2 < 1e-12) return Math.hypot(px - a[0], py - a[1]);
+  var t = Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / l2));
+  return Math.hypot(px - (a[0] + t * dx), py - (a[1] + t * dy));
+}
+
+function pick(sx, sy) {
+  var best = null, bestD = 9;
+  (net.visible || []).forEach(function (link) {
+    if (!link.screen) return;
+    var tol = Math.max(9, link.width / 2 + 3);
+    for (var i = 1; i < link.screen.length; i++) {
+      var d = distToSegment(sx, sy, link.screen[i - 1], link.screen[i]);
+      if (d < tol && d < bestD) { bestD = d; best = link; }
+    }
+  });
+  return best;
+}
+
+/* ------------------------------------------------------------------ *
+ * Entry form: both directions of the selected link at once
+ * ------------------------------------------------------------------ */
+
+function selectLink(link) {
+  selected = pairOf(link.key);
+  $('placeholder').classList.add('hidden');
+  $('detail').classList.remove('hidden');
+  $('link-title').textContent = 'Link ' + selected.a.no;
+  $('link-sub').textContent = selected.b
+    ? (selected.a.name || 'oba směry')
+    : ((selected.a.name ? selected.a.name + ' · ' : '') + 'jednosměrný');
+
+  var box = $('dirs');
+  box.innerHTML = '';
+  dirInputs = {};
+  [selected.a, selected.b].forEach(function (dir, index) {
+    if (!dir) return;
+    var block = document.createElement('div');
+    block.className = 'dirblock';
+    block.style.color = DIR_COLOURS[index];
+
+    var caption = document.createElement('span');
+    caption.className = 'caption';
+    // The dot repeats the colour this direction has on the map.
+    var dot = document.createElement('i');
+    dot.className = 'dot';
+    dot.style.background = DIR_COLOURS[index];
+    caption.appendChild(dot);
+    caption.appendChild(document.createTextNode(dir.from + ' → ' + dir.to));
+    block.appendChild(caption);
+
+    var entry = { block: block };
+    [['all', 'všechna', 'např. 12500'], ['hgv', 'nad 3,5 t', 'např. 800']].forEach(
+      function (spec) {
+        var row = document.createElement('div');
+        row.className = 'vrow';
+        var name = document.createElement('span');
+        name.textContent = spec[1];
+
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.inputMode = 'numeric';
+        input.id = 'v' + (index === 0 ? 'a' : 'b') + '-' + spec[0];
+        input.autocomplete = 'off';
+        input.placeholder = spec[2];
+        var current = values[dir.key] && values[dir.key][spec[0]];
+        input.value = current === undefined ? '' : current;
+        input.addEventListener('keydown', function (event) {
+          if (event.key === 'Enter') { event.preventDefault(); saveSelected(); }
+        });
+        input.addEventListener('focus', function () { setFocusedDirection(dir.key); });
+
+        row.appendChild(name);
+        row.appendChild(input);
+        block.appendChild(row);
+        entry[spec[0]] = input;
+      });
+
+    dirInputs[dir.key] = entry;
+    box.appendChild(block);
+  });
+
+  var first = dirInputs[link.key] || dirInputs[selected.a.key];
+  if (first) { first.all.focus(); first.all.select(); }
+  setFocusedDirection(link.key);
+  draw();
+}
+
+/** Mark which direction is being typed into, in the panel and on the map. */
+function setFocusedDirection(key) {
+  focusedKey = key;
+  Object.keys(dirInputs).forEach(function (k) {
+    dirInputs[k].block.classList.toggle('focused', k === key);
+  });
+  draw();
+}
+
+function clearSelection() {
+  selected = null;
+  focusedKey = null;
+  dirInputs = {};
+  $('detail').classList.add('hidden');
+  $('placeholder').classList.remove('hidden');
+  draw();
+}
+
+function readInput(input) {
+  if (!input) return { skip: true };
+  var text = input.value.trim().replace(/[\s\u00a0]/g, '').replace(',', '.');
+  if (!text) return { value: null };
+  if (!/^\d+(\.\d+)?$/.test(text)) return { error: '"' + input.value.trim() + '" není číslo.' };
+  return { value: Math.round(parseFloat(text)) };
+}
+
+function saveSelected() {
+  if (!selected) return;
+  var keys = Object.keys(dirInputs);
+  var read = {};
+  for (var i = 0; i < keys.length; i++) {
+    var entry = dirInputs[keys[i]];
+    var all = readInput(entry.all);
+    var hgv = readInput(entry.hgv);
+    if (all.error) { toast(all.error, true); entry.all.focus(); return; }
+    if (hgv.error) { toast(hgv.error, true); entry.hgv.focus(); return; }
+    if (all.value !== null && hgv.value !== null && hgv.value > all.value) {
+      toast('Vozidel nad 3,5 t nemůže být víc než všech vozidel.', true);
+      entry.hgv.focus();
+      return;
+    }
+    read[keys[i]] = { all: all.value, hgv: hgv.value };
+  }
+  keys.forEach(function (key) {
+    var v = read[key];
+    if (v.all === null && v.hgv === null) { delete values[key]; return; }
+    var stored = {};
+    if (v.all !== null) stored.all = v.all;
+    if (v.hgv !== null) stored.hgv = v.hgv;
+    values[key] = stored;
+  });
+  recomputeMax();
+  updateProgress();
+  draw();
+  toast('Uloženo.');
+}
+
+function clearSelected() {
+  if (!selected) return;
+  [selected.a, selected.b].forEach(function (dir) {
+    if (dir) delete values[dir.key];
+  });
+  recomputeMax();
+  updateProgress();
+  selectLink(selected.a);
+  toast('Vymazáno.');
+}
+
+/* ------------------------------------------------------------------ *
+ * Output
+ * ------------------------------------------------------------------ */
+
+var DIACRITICS = {
+  'á':'a','č':'c','ď':'d','é':'e','ě':'e','í':'i','ň':'n','ó':'o','ř':'r','š':'s',
+  'ť':'t','ú':'u','ů':'u','ý':'y','ž':'z','Á':'A','Č':'C','Ď':'D','É':'E','Ě':'E',
+  'Í':'I','Ň':'N','Ó':'O','Ř':'R','Š':'S','Ť':'T','Ú':'U','Ů':'U','Ý':'Y','Ž':'Z'
+};
+function ascii(text) {
+  return String(text == null ? '' : text).replace(/[^\x00-\x7F]/g, function (ch) {
+    return DIACRITICS[ch] !== undefined ? DIACRITICS[ch] : '?';
+  });
+}
+
+function attributeName(id, what) {
+  var name = $(id).value.trim().toUpperCase();
+  if (!/^[A-Z_][A-Z0-9_]{0,48}$/.test(name)) {
+    throw new Error('Název atributu pro ' + what + ' smí mít jen písmena, číslice '
+      + 'a podtržítko a musí začínat písmenem.');
+  }
+  return name;
+}
+
+/** Both attribute names at once; they become the two columns of the .att. */
+function attributeNames() {
+  var all = attributeName('attr', 'všechna vozidla');
+  var hgv = attributeName('attr-hgv', 'vozidla nad 3,5 t');
+  if (all === hgv) throw new Error('Oba atributy nemohou mít stejný název.');
+  return { all: all, hgv: hgv };
+}
+
+function download(fileName, content, mime) {
+  var blob = content instanceof Blob ? content : new Blob([content], { type: mime });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+}
+
+function exportAtt() {
+  var attr;
+  try { attr = attributeNames(); } catch (e) { toast(e.message, true); return; }
+  var filled = net.links.filter(function (l) { return hasValue(l.key); });
+  if (!filled.length) { toast('Zatím není zadaná žádná hodnota.', true); return; }
+
+  // Pure ASCII, so the cp1250 that Visum expects cannot mangle anything.
+  var lines = ['$VISION'];
+  [
+    'Traffic volumes entered manually with TrafficVolumes',
+    'Source: ' + ascii(net.name),
+    'Exported: ' + new Date().toISOString().slice(0, 19).replace('T', ' '),
+    'Directions: ' + filled.length + ' of ' + net.links.length,
+    '',
+    'Create these user defined attributes on the link network object first,',
+    'both of type Integer:',
+    '  ' + attr.all + '  - all vehicles',
+    '  ' + attr.hgv + '  - vehicles over 3.5 t',
+    '',
+    'Then read this file as an attribute file. The key columns',
+    'NO;FROMNODENO;TONODENO address one direction, so each direction keeps its',
+    'own values. An empty cell means that figure was not counted.'
+  ].forEach(function (c) { lines.push('* ' + c); });
+  lines.push('*');
+  lines.push('$LINK:NO;FROMNODENO;TONODENO;' + attr.all + ';' + attr.hgv);
+  filled.slice().sort(function (x, y) {
+    var a = parseInt(x.no, 10), b = parseInt(y.no, 10);
+    if (isFinite(a) && isFinite(b) && a !== b) return a - b;
+    if (x.no !== y.no) return x.no < y.no ? -1 : 1;
+    return x.from < y.from ? -1 : 1;
+  }).forEach(function (l) {
+    var total = totalOf(l.key);
+    var hgv = hgvOf(l.key);
+    lines.push([l.no, l.from, l.to,
+                total === undefined ? '' : total,
+                hgv === undefined ? '' : hgv].join(';'));
+  });
+
+  download(ascii(net.name).replace(/[^A-Za-z0-9._-]+/g, '_').replace(/\.[^.]*$/, '')
+    + '_intenzity.att', lines.join('\r\n') + '\r\n', 'text/plain;charset=us-ascii');
+  toast(filled.length + ' směrů zapsáno do .att');
+}
+
+function exportPng(withoutBasemap) {
+  var attr;
+  try { attr = attributeNames(); } catch (e) { toast(e.message, true); return; }
+  var tilesInPicture = basemapOn && net.geo && !withoutBasemap && !tilesTainted;
+  var scale = 2, head = 50, foot = 32;
+  var out = document.createElement('canvas');
+  out.width = view.w * scale;
+  out.height = (view.h + head + foot) * scale;
+  var c = out.getContext('2d');
+  c.setTransform(scale, 0, 0, scale, 0, 0);
+  c.fillStyle = '#0c111b';
+  c.fillRect(0, 0, view.w, view.h + head + foot);
+
+  // Reuse the live renderer by pointing it at the export canvas.
+  var live = ctx, keepSelected = selected, keepBasemap = basemapOn;
+  ctx = c;
+  c.save();
+  c.translate(0, head);
+  c.beginPath();
+  c.rect(0, 0, view.w, view.h);
+  c.clip();
+  selected = null;                       // no selection rings in the picture
+  basemapOn = tilesInPicture;
+  render();
+  selected = keepSelected;
+  basemapOn = keepBasemap;
+  c.restore();
+  ctx = live;
+  draw();
+
+  c.fillStyle = '#161d2c';
+  c.fillRect(0, 0, view.w, head);
+  c.fillRect(0, view.h + head, view.w, foot);
+  c.textBaseline = 'middle';
+  c.textAlign = 'left';
+  c.fillStyle = '#e6ebf2';
+  c.font = '600 16px "Segoe UI", system-ui, sans-serif';
+  c.fillText(attr.all + ' / ' + attr.hgv + ' — ' + net.name, 16, 20);
+  c.fillStyle = '#94a3b8';
+  c.font = '12px "Segoe UI", system-ui, sans-serif';
+  c.fillText(Object.keys(values).length + ' z ' + net.links.length + ' směrů vyplněno', 16, 38);
+
+  var x = 16, y = view.h + head + foot / 2;
+  function swatch(colour, label) {
+    c.fillStyle = colour;
+    c.fillRect(x, y - 5, 10, 10);
+    x += 14;
+    if (label) {
+      c.fillStyle = '#94a3b8';
+      c.font = '12px "Segoe UI", system-ui, sans-serif';
+      c.fillText(label, x, y);
+      x += c.measureText(label).width + 14;
+    }
+  }
+  swatch(EMPTY_COLOUR, 'nevyplněno');
+  swatch(FILLED_COLOUR, 'zadaná intenzita (všechna / nad 3,5 t)');
+  c.textAlign = 'right';
+  c.fillText((tilesInPicture ? TILE_ATTRIB_TEXT + ' · ' : '')
+    + new Date().toLocaleDateString('cs-CZ'), view.w - 16, y);
+
+  var fileName = ascii(net.name).replace(/[^A-Za-z0-9._-]+/g, '_')
+    .replace(/\.[^.]*$/, '') + '_intenzity.png';
+  try {
+    out.toBlob(function (blob) {
+      if (!blob) {
+        // A tile served without CORS headers taints the canvas. The plot itself
+        // is always exportable, so retry without the background.
+        if (tilesInPicture) { exportPng(true); return; }
+        toast('Obrázek se nepodařilo vytvořit.', true);
+        return;
+      }
+      download(fileName, blob, 'image/png');
+      toast('Obrázek uložen'
+        + (!tilesInPicture && basemapOn && net.geo ? ' (bez podkladové mapy).' : '.'));
+    }, 'image/png');
+  } catch (e) {
+    if (tilesInPicture) { exportPng(true); return; }
+    toast('Obrázek se nepodařilo vytvořit: ' + e.message, true);
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Loading a file
+ * ------------------------------------------------------------------ */
+
+/**
+ * Take a list of directions whose geometry is already in display coordinates
+ * and put the network on screen. Shared by reading a Visum export and by the
+ * data baked into this file, so both paths end up in exactly the same state.
+ * `values` has to be set before the call.
+ */
+function installNetwork(links, meta) {
+  var kept = [], order = {}, byKey = {}, seen = {};
+  var minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
+
+  links.forEach(function (link) {
+    if (seen[link.key]) return;          // one map feature per direction
+    seen[link.key] = true;
+    var world = [], ok = true;
+    for (var i = 0; i < link.geom.length; i++) {
+      var pt = link.geom[i];
+      if (!isFinite(pt[0]) || !isFinite(pt[1])) { ok = false; break; }
+      world.push(meta.geo ? toMercator(pt[0], pt[1]) : [pt[0], pt[1]]);
+    }
+    if (!ok || world.length < 2) return;
+    link.world = world;
+    var bx = [Infinity, Infinity, -Infinity, -Infinity];
+    world.forEach(function (w) {
+      bx[0] = Math.min(bx[0], w[0]); bx[1] = Math.min(bx[1], w[1]);
+      bx[2] = Math.max(bx[2], w[0]); bx[3] = Math.max(bx[3], w[1]);
+    });
+    link.bbox = bx;
+    minx = Math.min(minx, bx[0]); miny = Math.min(miny, bx[1]);
+    maxx = Math.max(maxx, bx[2]); maxy = Math.max(maxy, bx[3]);
+    order[link.key] = kept.length;
+    byKey[link.key] = link;
+    kept.push(link);
+  });
+  if (!kept.length) throw new Error('Síť neobsahuje žádný použitelný link.');
+
+  net = {
+    links: kept, byKey: byKey, order: order, visible: [],
+    bbox: [minx, miny, maxx, maxy], name: meta.name, crs: meta.crs, geo: meta.geo
+  };
+  selected = null;
+  recomputeMax();
+
+  $('drop').classList.add('hidden');
+  $('zoom').classList.remove('hidden');
+  startBasemap();
+  $('title').textContent = meta.name.replace(/\.[^.]+$/, '');
+  var oneWay = kept.filter(function (l) {
+    return !byKey[l.no + '|' + l.to + '|' + l.from];
+  }).length;
+  $('subtitle').textContent = kept.length + ' směrů · ' + meta.crs
+    + (meta.extra || '') + (oneWay ? ' · ' + oneWay + ' jednosměrných' : '');
+  $('legend').innerHTML = '<span class="swatch" style="background:' + EMPTY_COLOUR
+    + '"></span>nevyplněno &nbsp;&nbsp;<span class="swatch" style="background:'
+    + FILLED_COLOUR + '"></span>zadaná intenzita';
+  updateProgress();
+  updateSaveHint();
+  resize();
+  fitAll();
+}
+
+function loadFile(file) {
+  if (embedded) {
+    toast('Tento soubor už síť obsahuje, jiná se do něj načíst nedá.', true);
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function () {
+    try {
+      var parsed = readNetwork(file.name, decode(reader.result));
+      var projector = makeProjector(parsed.links.slice(0, 500).map(function (l) {
+        return l.geom[0];
+      }));
+      parsed.links.forEach(function (link) {
+        var geom = [];
+        for (var i = 0; i < link.geom.length; i++) {
+          var pt = projector.fn(link.geom[i][0], link.geom[i][1]);
+          geom.push([pt[0], pt[1]]);
+        }
+        link.geom = geom;
+      });
+      values = {};
+      installNetwork(parsed.links, {
+        name: file.name, crs: projector.name, geo: projector.geo,
+        extra: (parsed.added ? ' · oba směry doplněny k ' + parsed.added + ' linkům' : '')
+          + (parsed.skipped ? ' · ' + parsed.skipped + ' řádků bez geometrie' : '')
+      });
+    } catch (error) {
+      toast(error.message || String(error), true);
+    }
+  };
+  reader.onerror = function () { toast('Soubor se nepodařilo přečíst.', true); };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ------------------------------------------------------------------ *
+ * Baking the work into this very file
+ * ------------------------------------------------------------------ */
+
+/** Everything needed to reopen this exactly as it stands. */
+function payload() {
+  return {
+    v: 1,
+    name: net.name,
+    crs: net.crs,
+    geo: net.geo,
+    attr: { all: $('attr').value, hgv: $('attr-hgv').value },
+    links: net.links.map(function (l) {
+      return {
+        no: l.no, from: l.from, to: l.to, key: l.key, name: l.name || '',
+        geom: l.geom.map(function (pt) {
+          return [Math.round(pt[0] * 1e6) / 1e6, Math.round(pt[1] * 1e6) / 1e6];
+        })
+      };
+    }),
+    values: values
+  };
+}
+
+/**
+ * Write this page out again with the network, and whatever has been typed in,
+ * stored inside it. The running document already holds the whole application,
+ * so serialising it and adding the data gives a file that opens straight into
+ * the work.
+ */
+function saveHtml() {
+  if (!net) { toast('Nejdřív načtěte síť z Visumu.', true); return; }
+  var clone = document.documentElement.cloneNode(true);
+
+  // Anything the page built at runtime; boot fills it in again.
+  ['dirs', 'legend', 'attrib', 'toast', 'progress', 'subtitle'].forEach(function (id) {
+    var node = clone.querySelector('#' + id);
+    if (node) node.innerHTML = '';
+  });
+  // Typed-in text lives in the property, not the attribute, so carry it over.
+  [['attr', $('attr').value], ['attr-hgv', $('attr-hgv').value]].forEach(function (e) {
+    var node = clone.querySelector('#' + e[0]);
+    if (node) node.setAttribute('value', e[1]);
+  });
+
+  var slot = clone.querySelector('#tv-data');
+  // Escaping "<" keeps the data from ever closing the script element early.
+  slot.textContent = JSON.stringify(payload()).replace(/</g, '\\u003c');
+
+  var filled = Object.keys(values).filter(hasValue).length;
+  var base = ascii(net.name).replace(/[^A-Za-z0-9._-]+/g, '_').replace(/\.[^.]*$/, '');
+  download(base + (filled ? '_vyplneno' : '_zadani') + '.html',
+           '<!DOCTYPE html>\n' + clone.outerHTML, 'text/html;charset=utf-8');
+  toast(filled ? 'Uloženo i se zadanými hodnotami.' : 'Uloženo, soubor je připravený k odeslání.');
+}
+
+function updateSaveHint() {
+  var button = $('save-html');
+  var hint = $('save-hint');
+  if (!net) {
+    button.textContent = 'Uložit HTML';
+    hint.textContent = '';
+    return;
+  }
+  var filled = Object.keys(values).filter(hasValue).length;
+  if (!filled) {
+    button.textContent = 'Uložit HTML pro kolegu';
+    hint.textContent = 'Vznikne jeden soubor se zapečenou sítí. Kolega ho otevře '
+      + 'dvojklikem a rovnou zadává — nic nepřetahuje.';
+  } else {
+    button.textContent = 'Uložit práci (HTML)';
+    hint.textContent = 'Jeden soubor se sítí i zadanými hodnotami. Tímhle se práce '
+      + 'posílá zpátky; po otevření se pokračuje tam, kde jste skončil.';
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Wiring
+ * ------------------------------------------------------------------ */
+
+$('browse').addEventListener('click', function () { $('file').click(); });
+$('file').addEventListener('change', function () {
+  if (this.files[0]) loadFile(this.files[0]);
+  this.value = '';
+});
+['dragenter', 'dragover'].forEach(function (type) {
+  $('drop').addEventListener(type, function () { $('drop').classList.add('over'); });
+});
+['dragleave', 'drop'].forEach(function (type) {
+  $('drop').addEventListener(type, function () { $('drop').classList.remove('over'); });
+});
+
+// The whole window takes the drop, not just the dashed box. A file let go
+// anywhere else would otherwise be opened by the browser itself: it navigates
+// away from the page, and everything typed in so far is gone. That also happens
+// once the box is hidden, which is exactly when someone reaches for a new file.
+window.addEventListener('dragover', function (e) { e.preventDefault(); });
+window.addEventListener('dragenter', function (e) { e.preventDefault(); });
+window.addEventListener('drop', function (e) {
+  e.preventDefault();
+  var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (!file) return;
+  if (embedded) {
+    toast('Tento soubor už síť obsahuje. Stačí zadávat a pak Uložit HTML.');
+    return;
+  }
+  if (net && Object.keys(values).length
+      && !window.confirm('Načíst jinou síť? Zadané hodnoty se ztratí, pokud jste je '
+                         + 'neuložil do .att.')) {
+    return;
+  }
+  loadFile(file);
+});
+
+$('save').addEventListener('click', saveSelected);
+$('clear').addEventListener('click', clearSelected);
+$('save-html').addEventListener('click', saveHtml);
+$('export-att').addEventListener('click', function () {
+  if (net) exportAtt(); else toast('Nejdřív načtěte síť.', true);
+});
+$('export-png').addEventListener('click', function () {
+  if (net) exportPng(false); else toast('Nejdřív načtěte síť.', true);
+});
+/** Start, or restart, the background map. */
+function startBasemap() {
+  tiles = {};
+  tileOrder = [];
+  tileMode = null;
+  tilesLoaded = 0;
+  tilesTainted = false;
+  basemapOn = !!TILE_URL && !!net && net.geo;
+
+  $('attrib').innerHTML = basemapOn ? TILE_ATTRIB : '';
+  $('attrib').classList.toggle('hidden', !basemapOn);
+  draw();
+  if (!basemapOn) return;
+
+  var before = tilesLoaded;
+  probeTileMode(function () {
+    draw();
+    setTimeout(function () {
+      if (basemapOn && tilesLoaded === before) {
+        toast('Podkladovou mapu se nepodařilo načíst — server dlaždic není ze sítě '
+          + 'dostupný. Zadávání i exporty fungují dál.', true);
+      }
+    }, 6000);
+  });
+}
+
+$('zin').addEventListener('click', function () { zoomBy(1.6); });
+$('zout').addEventListener('click', function () { zoomBy(1 / 1.6); });
+$('zfit').addEventListener('click', fitAll);
+
+var drag = null;
+canvas.addEventListener('pointerdown', function (e) {
+  if (!net) return;
+  canvas.setPointerCapture(e.pointerId);
+  drag = { x: e.offsetX, y: e.offsetY, cx: view.cx, cy: view.cy, moved: false };
+  canvas.classList.add('dragging');
+});
+canvas.addEventListener('pointermove', function (e) {
+  if (!net) return;
+  if (!drag) {
+    canvas.style.cursor = pick(e.offsetX, e.offsetY) ? 'pointer' : '';
+    return;
+  }
+  var dx = e.offsetX - drag.x, dy = e.offsetY - drag.y;
+  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) drag.moved = true;
+  view.cx = drag.cx - dx / view.scale;
+  view.cy = drag.cy + dy / view.scale;
+  draw();
+});
+canvas.addEventListener('pointerup', function (e) {
+  if (!drag) return;
+  var moved = drag.moved;
+  drag = null;
+  canvas.classList.remove('dragging');
+  if (moved) return;
+  var hit = pick(e.offsetX, e.offsetY);
+  if (hit) selectLink(hit); else clearSelection();
+});
+canvas.addEventListener('pointercancel', function () {
+  drag = null;
+  canvas.classList.remove('dragging');
+});
+canvas.addEventListener('wheel', function (e) {
+  if (!net) return;
+  e.preventDefault();
+  zoomBy(Math.pow(1.0015, -e.deltaY), e.offsetX, e.offsetY);
+}, { passive: false });
+canvas.addEventListener('dblclick', function (e) {
+  if (net) zoomBy(2, e.offsetX, e.offsetY);
+});
+canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') clearSelection();
+});
+window.addEventListener('resize', function () { resize(); draw(); });
+
+forgetOldStorage();
+resize();
+render();
+
+// A file saved with "Uložit HTML" carries its network, and anything already
+// typed in, inside it: open it and the work is simply there.
+(function () {
+  var slot = document.getElementById('tv-data');
+  var raw = slot ? slot.textContent.trim() : '';
+  if (!raw) { updateSaveHint(); return; }
+  try {
+    var data = JSON.parse(raw);
+    if (data.attr) {
+      $('attr').value = data.attr.all || $('attr').value;
+      $('attr-hgv').value = data.attr.hgv || $('attr-hgv').value;
+    }
+    values = data.values || {};
+    embedded = true;
+    installNetwork(data.links, { name: data.name, crs: data.crs, geo: data.geo });
+    clearSelection();
+  } catch (error) {
+    embedded = false;
+    toast('Vložená data se nepodařilo načíst: ' + (error.message || error), true);
+  }
+})();
+</script>
+</body>
+</html>

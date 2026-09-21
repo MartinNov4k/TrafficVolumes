@@ -6,10 +6,19 @@ nainstalovaného — stačí prohlížeč.
 
 ![Aplikace](docs/screenshot.png)
 
+## Dvě varianty
+
+| soubor | k čemu |
+| --- | --- |
+| **[`TrafficVolumes.html`](TrafficVolumes.html)** | pracujete sám: otevřete, přetáhnete síť, zadáte, uložíte `.att` a obrázek |
+| **[`TrafficVolumesPredani.html`](TrafficVolumesPredani.html)** | zadáváte přes kolegu: síť se **zapeče přímo do HTML** a předává se jeden soubor tam i zpátky |
+
+Obě se otevírají dvojklikem, fungují offline i z flash disku a nic neodesílají.
+Ovládají se stejně; předávací varianta má navíc tlačítko **Uložit HTML**.
+
 ## Spuštění
 
-Stáhněte **[`TrafficVolumes.html`](TrafficVolumes.html)** a otevřete dvojklikem.
-To je celé. Funguje offline i z flash disku, nic se nikam neodesílá.
+Stáhněte příslušný soubor a otevřete dvojklikem. To je celé.
 
 ## Použití
 
@@ -49,6 +58,31 @@ Uložený obrázek obsahuje podkladovou mapu jen tehdy, když server dlaždic po
 hlavičky CORS. Bez nich prohlížeč odmítne plátno přečíst, obrázek se uloží bez
 podkladu a aplikace to napíše. Aplikace se na to zeptá jednou předem, ne
 u každé dlaždice.
+
+## Předání kolegovi
+
+S `TrafficVolumesPredani.html` vypadá kolečko takhle:
+
+1. **U vás:** otevřete soubor, přetáhněte do něj export sítě z Visumu,
+   zkontrolujte názvy atributů a klikněte **Uložit HTML pro kolegu**.
+   Vznikne jeden soubor se zapečenou sítí — u sítě s 450 směry má kolem 130 kB,
+   tedy míň než ten `.att`, který byste jinak posílal.
+2. **U kolegy:** dvojklik, a rovnou zadává. Žádné přetahování, síť už je uvnitř
+   a jiná se do souboru nedostane. Až skončí, klikne **Uložit práci (HTML)**
+   a pošle jeden soubor zpět.
+3. **U vás:** vrácený soubor otevřete dvojklikem, uvidíte jeho čísla a uděláte
+   si z nich **`.att`** i **obrázek**. Názvy atributů pro Visum tak držíte vy,
+   kolega je nemá jak rozbít.
+
+Rozdělanou práci lze vracet a posílat opakovaně — soubor se otevře přesně tam,
+kde se skončilo.
+
+> **Pozor na poštu.** Firemní e‑mail často blokuje přílohy `.html`. Vyzkoušejte
+> to dřív, než na to spolehnete; obvykle pomůže zip nebo sdílení přes
+> Teams/OneDrive.
+>
+> **Zavřením okna přijdete o nezapsané hodnoty** — v obou variantách. Ukládejte
+> průběžně.
 
 ## Načtení do Visumu
 
@@ -132,8 +166,9 @@ a pokud to server dlaždic dovolí (viz výše).
 
 ```bash
 pip install playwright && playwright install chromium
-python3 tests/e2e.py      # 58 kontrol celé aplikace
+python3 tests/e2e.py      # celá aplikace
 python3 tests/tiles.py    # podkladová mapa proti lokálnímu serveru
+python3 tests/predani.py  # předávací varianta: zapečení, zadání, vrácení
 ```
 
 `e2e.py` projde aplikaci v prohlížeči jako uživatel: načtení sítě ve všech
@@ -142,6 +177,12 @@ validaci čísel, jednosměrné linky, obsah `.att` i PNG.
 
 `tiles.py` si spustí vlastní dlaždicový server, takže nepotřebuje internet,
 a ověří chování s hlavičkami CORS, bez nich i při nedostupném serveru.
+
+`predani.py` projde celý kolotoč předání včetně opakovaného uložení.
+
+> Obě HTML varianty jsou samostatné soubory se společným kódem. Změna, která
+> se týká obou, se musí udělat dvakrát — kdyby to začalo vadit, dají se sloučit
+> do jednoho souboru, který se chová podle toho, jestli v sobě data má.
 
 ## Licence
 
