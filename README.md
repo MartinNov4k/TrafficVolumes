@@ -76,20 +76,6 @@ Kolečko vypadá takhle:
 Rozdělanou práci lze vracet a posílat opakovaně — soubor se otevře přesně tam,
 kde se skončilo.
 
-### Ukládání do jednoho souboru místo stahování
-
-Stránka nemůže přepsat soubor, ze kterého byla otevřená — prohlížeč k němu
-žádný přístup nedá a je to tak správně. Každé *Uložit HTML* proto stáhne nový
-soubor a po několikátém uložení máte ve stažených `(1)`, `(2)`…
-
-Tlačítko **Do souboru…** to obchází: v dialogu vyberete soubor — klidně ten,
-který máte právě otevřený — a od té chvíle se tlačítko jmenuje jen **Uložit**
-a zapisuje rovnou do něj, bez dialogu a bez kopií. Chová se to pak jako
-Ctrl+S v editoru.
-
-Umí to **Chrome a Edge**; ve Firefoxu a Safari je tlačítko neaktivní a ukládá
-se stahováním jako dřív.
-
 > **Pozor na poštu.** Firemní e‑mail často blokuje přílohy `.html`. Vyzkoušejte
 > to dřív, než na to spolehnete; obvykle pomůže zip nebo sdílení přes
 > Teams/OneDrive.
