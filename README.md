@@ -22,7 +22,7 @@ To je celé. Funguje offline i z flash disku, nic se nikam neodesílá.
 
    Každý směr má svou barvu — **modrou** a **fialovou**. Směr, do kterého
    právě píšete, se v mapě vykreslí celý svou barvou, se svítícím lemem
-   a s odznakem `19 → 20` vedle čáry; zbytek sítě zešedne. Nemůže tedy
+   a s bílou šipkou ukazující, kudy jede; zbytek sítě zešedne. Nemůže tedy
    dojít k záměně, který směr se edituje.
 3. **Uložit .att** stáhne soubor pro Visum, **Uložit obrázek** kartogram v PNG.
 
@@ -126,8 +126,8 @@ Neznámý systém se zobrazí v rovinném plátně — zadávání funguje stejn
 
 Každý směr je samostatná čára odsazená **vpravo ve směru jízdy**, se šipkou.
 Vyplněné směry jsou **zelené**, nevyplněné šedé; velikost intenzity ukazuje
-šířka čáry a hlavně číslo vypsané vedle ní ve tvaru
-`12 500 / 900 t` — všechna vozidla a z toho nad 3,5 t.
+šířka čáry a hlavně číslo vypsané vedle ní ve tvaru `12 500 / 900` — všechna
+vozidla a z toho vozidla nad 3,5 t.
 Táhnutím se posouvá, kolečkem přibližuje, <kbd>Esc</kbd> zruší výběr.
 
 Obrázek uložený tlačítkem obsahuje i podkladovou mapu, pokud je zapnutá

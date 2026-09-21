@@ -830,14 +830,16 @@ function colourOf(link) {
   return hasValue(link.key) ? FILLED_COLOUR : EMPTY_COLOUR;
 }
 
-/** "12 500 / 800 t" - whichever of the two was entered. */
+/** "12 500 / 800": all vehicles, then those over 3.5 t. */
 function labelOf(key) {
-  var parts = [];
   var total = totalOf(key);
   var hgv = hgvOf(key);
-  if (total !== undefined) parts.push(total.toLocaleString('cs-CZ'));
-  if (hgv !== undefined) parts.push(hgv.toLocaleString('cs-CZ') + ' t');
-  return parts.join(' / ');
+  if (total !== undefined && hgv !== undefined) {
+    return total.toLocaleString('cs-CZ') + ' / ' + hgv.toLocaleString('cs-CZ');
+  }
+  if (total !== undefined) return total.toLocaleString('cs-CZ');
+  // A dash keeps the second figure in its place when the total is missing.
+  return '– / ' + hgv.toLocaleString('cs-CZ');
 }
 
 /** Project a direction and push it to the right hand side of travel. */
@@ -859,32 +861,36 @@ function screenPath(link, offset) {
   });
 }
 
-/** A small "from → to" badge beside the direction that is being edited. */
+/**
+ * A big arrow along the direction being edited, so which way it runs is
+ * obvious at a glance. Drawn white over the coloured line, outlined dark so it
+ * survives a light background map.
+ */
 function markFocusedDirection() {
   var link = focusedKey && net.byKey[focusedKey];
   if (!link || !link.screen || !selected) return;
-  var i = link === selected.a ? 0 : 1;
   var pts = link.screen;
   var j = Math.max(1, Math.floor(pts.length / 2));
   var a = pts[j - 1], bpt = pts[j];
   var dx = bpt[0] - a[0], dy = bpt[1] - a[1], len = Math.hypot(dx, dy) || 1;
-  // Value labels sit on the right of the line, so the badge goes on the left.
-  var push = Math.max(link.width, 7) / 2 + 15;
-  var cx = (a[0] + bpt[0]) / 2 + dy / len * push;
-  var cy = (a[1] + bpt[1]) / 2 - dx / len * push;
+  var ux = dx / len, uy = dy / len;
+  var cx = (a[0] + bpt[0]) / 2, cy = (a[1] + bpt[1]) / 2;
 
-  var text = link.from + ' → ' + link.to;
-  ctx.font = '600 12px "Segoe UI", system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  var w = ctx.measureText(text).width + 14;
-  ctx.fillStyle = DIR_COLOURS[i];
+  var size = Math.max(9, Math.min(16, Math.max(link.width, 7) * 1.7));
+  var tipX = cx + ux * size * 0.6, tipY = cy + uy * size * 0.6;
+  var backX = cx - ux * size * 0.6, backY = cy - uy * size * 0.6;
+
   ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(cx - w / 2, cy - 11, w, 22, 5);
-  else ctx.rect(cx - w / 2, cy - 11, w, 22);
+  ctx.moveTo(tipX, tipY);
+  ctx.lineTo(backX - uy * size * 0.62, backY + ux * size * 0.62);
+  ctx.lineTo(backX + uy * size * 0.62, backY - ux * size * 0.62);
+  ctx.closePath();
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(8,16,29,.9)';
+  ctx.stroke();
+  ctx.fillStyle = '#ffffff';
   ctx.fill();
-  ctx.fillStyle = '#08101d';
-  ctx.fillText(text, cx, cy);
 }
 
 function stroke(pts, colour, width, alpha) {
