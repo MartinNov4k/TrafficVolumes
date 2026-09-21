@@ -17,19 +17,21 @@ To je celé. Funguje offline i z flash disku, nic se nikam neodesílá.
    nebo `.geojson`. Pustit ho můžete kamkoli na stránku, i později, když
    chcete načíst jinou síť.
 2. **Klikněte na link v mapě.** V panelu se objeví oba směry
-   (`19 → 20` a `20 → 19`) a do každého se zapíše jeho intenzita.
-   <kbd>Enter</kbd> uloží.
+   (`19 → 20` a `20 → 19`) a u každého **dvě políčka**: *všechna vozidla*
+   a *vozidla nad 3,5 t*. <kbd>Enter</kbd> uloží všechna najednou.
 
-   Každý směr má svou barvu — **modrou** a **fialovou** — a stejnou barvu má
-   puntík u jeho políčka. Směr, ve kterém právě píšete, je v mapě obtažený
-   silněji, takže je pořád zřejmé, které číslo kam patří.
+   Každý směr má svou barvu — **modrou** a **fialovou**. Směr, do kterého
+   právě píšete, se v mapě vykreslí celý svou barvou, se svítícím lemem
+   a s odznakem `19 → 20` vedle čáry; zbytek sítě zešedne. Nemůže tedy
+   dojít k záměně, který směr se edituje.
 3. **Uložit .att** stáhne soubor pro Visum, **Uložit obrázek** kartogram v PNG.
 
-Do políčka *Název atributu ve Visumu* zadejte, jak se má sloupec jmenovat
-(výchozí `VOL_MANUAL`).
+Do políček *Atribut ve Visumu* zadejte, jak se mají oba sloupce jmenovat
+(výchozí `VOL_ALL` a `VOL_HGV`).
 
-V nabídce **podkladová mapa** si vyberete zdroj dlaždic. U sítí v neznámém
-souřadnicovém systému se nenabízí, protože dlaždice by neseděly.
+V nabídce **podkladová mapa** si vyberete zdroj dlaždic; ve výchozím stavu
+se zapne **Esri**. U sítí v neznámém souřadnicovém systému se nenabízí,
+protože dlaždice by neseděly.
 
 > **Pozor na OpenStreetMap.** Stránka otevřená z disku (`file://`) neposílá
 > hlavičku `Referer` a JavaScript ji doplnit nesmí. Servery OpenStreetMap
@@ -58,17 +60,19 @@ proto je uložte dřív, než okno zavřete.
 Stažený `.att` vypadá takto:
 
 ```
-$LINK:NO;FROMNODENO;TONODENO;VOL_DEN
-1;10;11;12500
-1;11;10;9800
+$LINK:NO;FROMNODENO;TONODENO;VOL_ALL;VOL_HGV
+1;10;11;12500;900
+1;11;10;9800;700
 ```
+
+Prázdná buňka znamená, že se ta hodnota nesčítala.
 
 Klíčové sloupce `NO;FROMNODENO;TONODENO` adresují **jeden konkrétní směr**
 linku, takže každý směr si nese svou hodnotu. Ve Visumu:
 
-1. Vytvořte na objektu **Link** uživatelský atribut se stejným názvem
-   (`VOL_DEN`, typ *Integer*) — v seznamu linků pravým tlačítkem na záhlaví
-   sloupce → *User-defined attributes…*
+1. Vytvořte na objektu **Link** oba uživatelské atributy se stejnými názvy
+   (`VOL_ALL` a `VOL_HGV`, typ *Integer*) — v seznamu linků pravým tlačítkem
+   na záhlaví sloupce → *User-defined attributes…*
 2. Načtěte soubor atributů (`File > Import > Attribute file…`; v některých
    verzích *„Read attribute file“* přímo ze seznamu linků).
 
@@ -121,9 +125,9 @@ Neznámý systém se zobrazí v rovinném plátně — zadávání funguje stejn
 ## Mapa
 
 Každý směr je samostatná čára odsazená **vpravo ve směru jízdy**, se šipkou.
-Vyplněné směry mají jednu barvu, nevyplněné jsou šedé; velikost intenzity
-ukazuje šířka čáry a hlavně číslo vypsané vedle ní.
-Vybraný link má oba směry obtažené barvou podle panelu, editovaný silněji.
+Vyplněné směry jsou **zelené**, nevyplněné šedé; velikost intenzity ukazuje
+šířka čáry a hlavně číslo vypsané vedle ní ve tvaru
+`12 500 / 900 t` — všechna vozidla a z toho nad 3,5 t.
 Táhnutím se posouvá, kolečkem přibližuje, <kbd>Esc</kbd> zruší výběr.
 
 Obrázek uložený tlačítkem obsahuje i podkladovou mapu, pokud je zapnutá

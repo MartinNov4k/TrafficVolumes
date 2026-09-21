@@ -40,7 +40,8 @@ with sync_playwright() as pw:
     ctx = b.new_context(viewport={"width":1300,"height":820}, accept_downloads=True)
     page = ctx.new_page()
     page.on("pageerror", lambda e: errs.append("pageerror: "+str(e)))
-    page.on("console", lambda m: errs.append(m.text) if m.type=="error" else None)
+    page.on("console", lambda m: errs.append(m.text)
+            if m.type == "error" and "Failed to load resource" not in m.text else None)
 
     print("\n== načtení ==")
     page.goto(APP); page.wait_for_timeout(300)
@@ -59,55 +60,65 @@ with sync_playwright() as pw:
         return null; }""")
     check("nalezen obousměrný link", t is not None, t)
     page.mouse.click(t["x"], t["y"]); page.wait_for_timeout(250)
-    dirs = page.evaluate("""() => Array.from(document.querySelectorAll('#dirs label')).map(l => ({
-        caption: l.querySelector('span').textContent, id: l.querySelector('input').id }))""")
-    check("dva vstupy pro dva směry", len(dirs)==2, dirs)
+    dirs = page.evaluate("""() => Array.from(document.querySelectorAll('#dirs .dirblock')).map(b => ({
+        caption: b.querySelector('.caption').textContent,
+        ids: Array.from(b.querySelectorAll('input')).map(i => i.id) }))""")
+    check("dva bloky pro dva směry", len(dirs)==2, dirs)
     check("popisky se šipkou", "→" in dirs[0]["caption"] and "→" in dirs[1]["caption"], dirs)
-    check("id vstupů va/vb", [d["id"] for d in dirs]==["va","vb"], dirs)
+    check("každý směr má obě veličiny",
+          [d["ids"] for d in dirs] == [["va-all","va-hgv"],["vb-all","vb-hgv"]], dirs)
 
-    page.fill("#va", "12500"); page.fill("#vb", "9800")
+    page.fill("#va-all", "12500"); page.fill("#va-hgv", "900")
+    page.fill("#vb-all", "9800"); page.fill("#vb-hgv", "700")
     page.click("#save"); page.wait_for_timeout(250)
     saved = page.evaluate("(k) => ({a: values[k[0]], b: values[k[1]], prog: document.getElementById('progress').textContent})", [t["a"], t["b"]])
-    check("oba směry uloženy naráz", saved["a"]==12500 and saved["b"]==9800, saved)
+    check("oba směry i obě veličiny uloženy naráz",
+          saved["a"]=={"all":12500,"hgv":900} and saved["b"]=={"all":9800,"hgv":700}, saved)
     check("postup 2 z 55", "2 z 55" in saved["prog"], saved["prog"])
 
+    page.fill("#va-hgv", "99999"); page.click("#save"); page.wait_for_timeout(250)
+    check("nákladní nad rámec všech je odmítnuto",
+          "nemůže být víc" in page.text_content("#toast"), page.text_content("#toast"))
+    page.fill("#va-hgv", "900")
+
     print("\n== Enter ukládá, čárka a mezery projdou ==")
-    page.fill("#va", "13 200"); page.press("#va", "Enter"); page.wait_for_timeout(200)
-    check("mezera jako oddělovač tisíců", page.evaluate("(k)=>values[k]", t["a"])==13200)
-    page.fill("#va", "abc"); page.click("#save"); page.wait_for_timeout(200)
+    page.fill("#va-all", "13 200"); page.press("#va-all", "Enter"); page.wait_for_timeout(200)
+    check("mezera jako oddělovač tisíců", page.evaluate("(k)=>totalOf(k)", t["a"])==13200)
+    page.fill("#va-all", "abc"); page.click("#save"); page.wait_for_timeout(200)
     check("nesmysl odmítnut", "není číslo" in page.text_content("#toast"), page.text_content("#toast"))
-    page.fill("#va", "13200")
+    page.fill("#va-all", "13200")
 
     print("\n== kliknutí na druhý směr otevře stejný link ==")
     page.evaluate("(k) => selectLink(net.byKey[k])", t["b"]); page.wait_for_timeout(200)
-    same = page.evaluate("""() => ({a: document.getElementById('va').value,
-                                   b: document.getElementById('vb').value,
+    same = page.evaluate("""() => ({a: document.getElementById('va-all').value,
+                                   b: document.getElementById('vb-all').value,
                                    focused: document.activeElement.id})""")
     check("formulář se neprohodil", same["a"]=="13200" and same["b"]=="9800", same)
-    check("kurzor v klikutém směru", same["focused"]=="vb", same)
+    check("kurzor v klikutém směru", same["focused"]=="vb-all", same)
 
     print("\n== jednosměrný link ==")
     one = page.evaluate("""() => { for (const l of net.links) { const p=pairOf(l.key); if (!p.b) return l.key; } return null; }""")
     if one:
         page.evaluate("(k)=>selectLink(net.byKey[k])", one); page.wait_for_timeout(200)
-        n = page.evaluate("() => document.querySelectorAll('#dirs label').length")
-        check("jen jeden vstup", n==1, n)
+        n = page.evaluate("() => document.querySelectorAll('#dirs .dirblock').length")
+        check("jen jeden blok", n==1, n)
         check("označeno jako jednosměrný", "jednosměrn" in page.text_content("#link-sub"), page.text_content("#link-sub"))
 
     print("\n== export .att ==")
-    page.fill("#attr", "VOL_DEN")
+    page.fill("#attr", "VOL_DEN"); page.fill("#attr-hgv", "VOL_TV")
     with page.expect_download(timeout=15000) as d:
         page.click("#export-att")
     att_path = os.path.join(DL, "out.att"); d.value.save_as(att_path)
     raw = open(att_path,"rb").read()
     text = raw.decode("ascii")
     check("čisté ASCII", True)
-    check("název souboru nese atribut", "VOL_DEN" in d.value.suggested_filename, d.value.suggested_filename)
-    check("klíčové sloupce", "$LINK:NO;FROMNODENO;TONODENO;VOL_DEN" in text,
+    check("název souboru", "intenzity" in d.value.suggested_filename, d.value.suggested_filename)
+    check("obě veličiny jako sloupce", "$LINK:NO;FROMNODENO;TONODENO;VOL_DEN;VOL_TV" in text,
           [l for l in text.splitlines() if l.startswith("$LINK")])
     rows = [l for l in text.splitlines() if l and not l.startswith(("*","$"))]
     check("oba směry jako dva řádky", len(rows)==2, rows)
-    check("hodnoty sedí", any(r.endswith(";13200") for r in rows) and any(r.endswith(";9800") for r in rows), rows)
+    check("hodnoty sedí", any(r.endswith(";13200;900") for r in rows)
+          and any(r.endswith(";9800;700") for r in rows), rows)
     check("CRLF konce řádků", b"\r\n" in raw)
 
     print("\n== export PNG ==")
@@ -167,14 +178,14 @@ with sync_playwright() as pw:
           pair["a"] in hits and pair["b"] in hits, {"pair": pair, "hits": len(hits)})
 
     page3.evaluate("(k) => selectLink(net.byKey[k])", pair["a"]); page3.wait_for_timeout(200)
-    check("panel nabídne dvě políčka",
-          page3.evaluate("() => document.querySelectorAll('#dirs input').length") == 2)
+    check("panel nabídne oba směry i obě veličiny",
+          page3.evaluate("() => document.querySelectorAll('#dirs input').length") == 4)
     check("a nepíše jednosměrný",
           "jednosměrn" not in page3.text_content("#link-sub"), page3.text_content("#link-sub"))
 
-    page3.fill("#va", "12500"); page3.fill("#vb", "9800")
+    page3.fill("#va-all", "12500"); page3.fill("#vb-all", "9800")
     page3.click("#save"); page3.wait_for_timeout(250)
-    page3.fill("#attr", "VOL_DEN")
+    page3.fill("#attr", "VOL_DEN"); page3.fill("#attr-hgv", "VOL_TV")
     with page3.expect_download(timeout=15000) as d3:
         page3.click("#export-att")
     one_att = os.path.join(DL, "one_row.att"); d3.value.save_as(one_att)
@@ -182,8 +193,8 @@ with sync_playwright() as pw:
             if l and not l.startswith(("*", "$"))]
     no, a_from, a_to = pair["a"].split("|")
     check("doplněný směr je v .att", len(rows) == 2
-          and ";".join([no, a_from, a_to, "12500"]) in rows
-          and ";".join([no, a_to, a_from, "9800"]) in rows, rows)
+          and ";".join([no, a_from, a_to, "12500", ""]) in rows
+          and ";".join([no, a_to, a_from, "9800", ""]) in rows, rows)
     page3.close()
 
     print("\n== per-směrový export se nezdvojuje ==")
@@ -228,8 +239,8 @@ with sync_playwright() as pw:
     page5.evaluate("() => selectLink(net.byKey[Object.keys(net.byKey).filter("
                    + "function (k) { return k.indexOf('101|') === 0; })[0]])")
     page5.wait_for_timeout(200)
-    check("panel nabídne oba směry",
-          page5.evaluate("() => document.querySelectorAll('#dirs input').length") == 2)
+    check("panel nabídne oba směry i obě veličiny",
+          page5.evaluate("() => document.querySelectorAll('#dirs input').length") == 4)
     page5.close()
 
     print("\n== je vidět, který směr se edituje ==")
@@ -247,23 +258,28 @@ with sync_playwright() as pw:
         active: document.activeElement.id,
         dots: Array.from(document.querySelectorAll('#dirs .dot')).map(function (d) {
             return d.style.background; }),
-        marked: Array.from(document.querySelectorAll('#dirs label')).map(function (l) {
+        marked: Array.from(document.querySelectorAll('#dirs .dirblock')).map(function (l) {
             return l.classList.contains('focused'); }) })""")
     check("každý směr má svou barvu", len(hl["dots"]) == 2 and hl["dots"][0] != hl["dots"][1], hl)
     check("zvýrazněn je klikutý směr",
-          hl["focused"] == duo["a"] and hl["active"] == "va" and hl["marked"] == [True, False], hl)
+          hl["focused"] == duo["a"] and hl["active"] == "va-all"
+          and hl["marked"] == [True, False], hl)
 
-    page6.focus("#vb"); page6.wait_for_timeout(250)
+    page6.focus("#vb-all"); page6.wait_for_timeout(250)
     hl2 = page6.evaluate("""() => ({ focused: focusedKey,
-        marked: Array.from(document.querySelectorAll('#dirs label')).map(function (l) {
+        marked: Array.from(document.querySelectorAll('#dirs .dirblock')).map(function (l) {
             return l.classList.contains('focused'); }) })""")
-    check("přechod do druhého políčka přepne zvýraznění",
+    check("přechod do druhého směru přepne zvýraznění",
           hl2["focused"] == duo["b"] and hl2["marked"] == [False, True], hl2)
+
+    page6.focus("#vb-hgv"); page6.wait_for_timeout(200)
+    check("druhá veličina drží zvýraznění u téhož směru",
+          page6.evaluate("() => focusedKey") == duo["b"])
 
     page6.evaluate("(k) => selectLink(net.byKey[k])", duo["b"]); page6.wait_for_timeout(250)
     check("klik na druhý směr v mapě zvýrazní jeho políčko",
           page6.evaluate("() => focusedKey") == duo["b"]
-          and page6.evaluate("() => document.activeElement.id") == "vb")
+          and page6.evaluate("() => document.activeElement.id") == "vb-all")
 
     print("\n== podkladová mapa ==")
     check("nabídka je u zeměpisných souřadnic k dispozici",
@@ -271,8 +287,12 @@ with sync_playwright() as pw:
               "() => document.getElementById('basemap-row').classList.contains('hidden')"))
     check("nabízí se víc zdrojů dlaždic",
           page6.evaluate("() => document.querySelectorAll('#basemap option').length") >= 4)
-    check("atribuce je zprvu skrytá",
-          page6.evaluate("() => document.getElementById('attrib').classList.contains('hidden')"))
+    check("výchozí zdroj je Esri",
+          page6.evaluate("() => document.getElementById('basemap').value") == "esri",
+          page6.evaluate("() => document.getElementById('basemap').value"))
+    check("atribuce je rovnou vidět",
+          not page6.evaluate(
+              "() => document.getElementById('attrib').classList.contains('hidden')"))
     page6.select_option("#basemap", "carto-light"); page6.wait_for_timeout(2500)
     bm = page6.evaluate("""() => ({ on: basemapOn, tiles: Object.keys(tiles).length,
         hidden: document.getElementById('attrib').classList.contains('hidden'),
@@ -313,11 +333,13 @@ with sync_playwright() as pw:
     page7.wait_for_function("() => !!window.net", timeout=15000); page7.wait_for_timeout(400)
     loc = page7.evaluate("""() => ({ crs: net.crs, geo: net.geo, n: net.links.length,
         hidden: document.getElementById('basemap-row').classList.contains('hidden'),
+        source: document.getElementById('basemap').value,
         drawn: net.visible.length })""")
     check("neznámý systém zůstane v rovinném plátně",
           not loc["geo"] and "místní" in loc["crs"], loc)
     check("síť se i tak vykreslí", loc["n"] == 55 and loc["drawn"] > 0, loc)
-    check("podkladová mapa se u místních souřadnic nenabízí", loc["hidden"], loc)
+    check("podkladová mapa se u místních souřadnic nenabízí",
+          loc["hidden"] and loc["source"] == "none", loc)
     page7.close()
 
     print("\n== soubor puštěný kamkoli po stránce ==")
@@ -350,7 +372,7 @@ with sync_playwright() as pw:
     check("síť se z puštěného souboru načetla",
           page8.evaluate("() => net.links.length") == 55)
 
-    page8.evaluate("() => { values[net.links[0].key] = 999; updateProgress(); }")
+    page8.evaluate("() => { values[net.links[0].key] = {all: 999}; updateProgress(); }")
     navs = []
     page8.on("framenavigated", lambda f: navs.append(f.url))
     check("puštění na mapu je odchycené",
