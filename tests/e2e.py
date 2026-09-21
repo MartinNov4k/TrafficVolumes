@@ -282,46 +282,26 @@ with sync_playwright() as pw:
           and page6.evaluate("() => document.activeElement.id") == "vb-all")
 
     print("\n== podkladová mapa ==")
-    check("nabídka je u zeměpisných souřadnic k dispozici",
-          not page6.evaluate(
-              "() => document.getElementById('basemap-row').classList.contains('hidden')"))
-    check("nabízí se víc zdrojů dlaždic",
-          page6.evaluate("() => document.querySelectorAll('#basemap option').length") >= 4)
-    check("výchozí zdroj je Esri",
-          page6.evaluate("() => document.getElementById('basemap').value") == "esri",
-          page6.evaluate("() => document.getElementById('basemap').value"))
-    check("atribuce je rovnou vidět",
-          not page6.evaluate(
-              "() => document.getElementById('attrib').classList.contains('hidden')"))
-    page6.select_option("#basemap", "carto-light"); page6.wait_for_timeout(2500)
+    # Esri starts on its own; there is nothing to choose.
     bm = page6.evaluate("""() => ({ on: basemapOn, tiles: Object.keys(tiles).length,
         hidden: document.getElementById('attrib').classList.contains('hidden'),
         text: document.getElementById('attrib').textContent,
-        drawn: net.visible.length })""")
-    check("dlaždice se začaly načítat", bm["on"] and bm["tiles"] > 0, bm)
-    check("atribuce zvoleného zdroje je vidět",
-          not bm["hidden"] and "OpenStreetMap" in bm["text"] and "CARTO" in bm["text"], bm)
+        url: TILE_URL, drawn: net.visible.length })""")
+    check("podklad se zapne sám", bm["on"], bm)
+    check("a je to Esri", "arcgisonline" in bm["url"], bm["url"])
+    check("atribuce je vidět", not bm["hidden"] and "Esri" in bm["text"], bm)
+    page6.wait_for_timeout(2000)
+    check("dlaždice se začaly načítat",
+          page6.evaluate("() => Object.keys(tiles).length") > 0)
     # The sandbox blocks the tile server, which is exactly the offline case.
-    check("síť se kreslí i bez dlaždic", bm["drawn"] > 0, bm)
+    check("síť se kreslí i bez dlaždic",
+          page6.evaluate("() => net.visible.length") > 0)
 
     with page6.expect_download(timeout=25000) as d6:
         page6.click("#export-png")
     bm_png = os.path.join(DL, "basemap.png"); d6.value.save_as(bm_png)
     check("PNG jde uložit i se zapnutou podkladovou mapou",
           open(bm_png, "rb").read()[:8] == b"\x89PNG\r\n\x1a\n")
-
-    page6.select_option("#basemap", "custom"); page6.wait_for_timeout(250)
-    check("volba vlastní adresy odkryje pole",
-          not page6.evaluate(
-              "() => document.getElementById('tileurl').classList.contains('hidden')"))
-    page6.fill("#tileurl", "neplatna-adresa")
-    page6.dispatch_event("#tileurl", "change"); page6.wait_for_timeout(300)
-    check("nesmyslná adresa je odmítnutá",
-          "{z}" in page6.text_content("#toast"), page6.text_content("#toast"))
-
-    page6.select_option("#basemap", "none"); page6.wait_for_timeout(250)
-    check("volba žádná schová atribuci",
-          page6.evaluate("() => document.getElementById('attrib').classList.contains('hidden')"))
     page6.close()
 
     print("\n== místní souřadnice ==")
@@ -332,14 +312,14 @@ with sync_playwright() as pw:
     page7.set_input_files("#file", LOCAL)
     page7.wait_for_function("() => !!window.net", timeout=15000); page7.wait_for_timeout(400)
     loc = page7.evaluate("""() => ({ crs: net.crs, geo: net.geo, n: net.links.length,
-        hidden: document.getElementById('basemap-row').classList.contains('hidden'),
-        source: document.getElementById('basemap').value,
+        on: basemapOn,
+        hidden: document.getElementById('attrib').classList.contains('hidden'),
         drawn: net.visible.length })""")
     check("neznámý systém zůstane v rovinném plátně",
           not loc["geo"] and "místní" in loc["crs"], loc)
     check("síť se i tak vykreslí", loc["n"] == 55 and loc["drawn"] > 0, loc)
-    check("podkladová mapa se u místních souřadnic nenabízí",
-          loc["hidden"] and loc["source"] == "none", loc)
+    check("podkladová mapa se u místních souřadnic nezapne",
+          not loc["on"] and loc["hidden"], loc)
     page7.close()
 
     print("\n== soubor puštěný kamkoli po stránce ==")

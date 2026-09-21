@@ -28,11 +28,6 @@ h1 { font-size: 16px; margin: 0; }
 .muted { color: var(--muted); font-size: 12px; }
 
 label span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-select {
-  width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line);
-  background: var(--panel2); color: var(--text); font: inherit;
-}
-#tileurl { margin-top: 6px; font-size: 12px; }
 input[type=text] {
   width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line);
   background: var(--panel2); color: var(--text); font: inherit;
@@ -122,15 +117,6 @@ kbd { font: 11px/1 ui-monospace, monospace; padding: 2px 4px; border-radius: 3px
     </label>
 
     <p class="muted" id="progress"></p>
-
-    <div class="hidden" id="basemap-row">
-      <label>
-        <span>Podkladová mapa</span>
-        <select id="basemap"></select>
-      </label>
-      <input type="text" id="tileurl" class="hidden" spellcheck="false"
-             placeholder="https://…/{z}/{x}/{y}.png">
-    </div>
 
     <div id="detail" class="hidden">
       <h2 id="link-title"></h2>
@@ -664,41 +650,15 @@ var EMPTY_COLOUR = '#8b96a8';
 // input, so it is never in doubt which line a number belongs to. Both are well
 // clear of the green-to-red value ramp.
 var DIR_COLOURS = ['#4f9dff', '#c77dff'];
-// Tile services to choose from. A page opened from a file:// URL sends no
-// Referer header, and a browser does not let a script add one, so any service
-// that insists on identifying the application will refuse the tiles - which is
-// what OpenStreetMap's own servers do, returning a picture that says so. Hence
-// the choice, including a field for a service of your own.
-var TILE_SOURCES = [
-  { id: 'none', label: 'žádná', url: '', attrib: '' },
-  { id: 'carto-light', label: 'CARTO světlá',
-    url: 'https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-    attrib: '© <a href="https://www.openstreetmap.org/copyright" target="_blank"'
-      + ' rel="noopener">OpenStreetMap</a> přispěvatelé, ©'
-      + ' <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>',
-    text: '© OpenStreetMap, © CARTO' },
-  { id: 'carto-dark', label: 'CARTO tmavá',
-    url: 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-    attrib: '© <a href="https://www.openstreetmap.org/copyright" target="_blank"'
-      + ' rel="noopener">OpenStreetMap</a> přispěvatelé, ©'
-      + ' <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>',
-    text: '© OpenStreetMap, © CARTO' },
-  { id: 'esri', label: 'Esri ulice',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map'
-      + '/MapServer/tile/{z}/{y}/{x}',
-    attrib: 'Esri, HERE, Garmin, © OpenStreetMap přispěvatelé',
-    text: 'Esri, © OpenStreetMap' },
-  { id: 'osm', label: 'OpenStreetMap (blokuje soubory z disku)',
-    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attrib: '© <a href="https://www.openstreetmap.org/copyright" target="_blank"'
-      + ' rel="noopener">OpenStreetMap</a> přispěvatelé',
-    text: '© OpenStreetMap' },
-  { id: 'custom', label: 'vlastní adresa…', url: '', attrib: 'vlastní zdroj dlaždic',
-    text: '' }
-];
-var TILE_URL = '';
-var TILE_ATTRIB = '';
-var TILE_ATTRIB_TEXT = '';
+// The background map. A page opened from a file:// URL sends no Referer header
+// and a script cannot add one, so services that insist on identifying the
+// application refuse the tiles - which is what OpenStreetMap's own servers do.
+// Esri serves them. Point these at another XYZ service to use a different one.
+var TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/'
+  + 'World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+var TILE_ATTRIB = 'Esri, HERE, Garmin, © <a href="https://www.openstreetmap.org/copyright"'
+  + ' target="_blank" rel="noopener">OpenStreetMap</a> přispěvatelé';
+var TILE_ATTRIB_TEXT = 'Esri, © OpenStreetMap';
 
 var net = null;          // {links, byKey, order, bbox, name, crs, geo}
 // direction key -> {all: number|undefined, hgv: number|undefined}
@@ -710,7 +670,6 @@ var maxValue = 1;
 var basemapOn = false;
 var tiles = {}, tileOrder = [];
 var tilesLoaded = 0;      // how many tiles actually arrived
-var currentSource = { id: null, url: null };
 var tileMode = null;      // null until probed, then 'cors' or 'plain'
 var tilesTainted = false; // true when tiles are loaded without CORS
 
@@ -1472,11 +1431,7 @@ function loadFile(file) {
       $('drop').classList.add('hidden');
       $('zoom').classList.remove('hidden');
       // A background map only makes sense once the coordinates are geographic.
-      // Esri is the default because OpenStreetMap turns away pages opened from
-      // a local file.
-      $('basemap-row').classList.toggle('hidden', !projector.geo);
-      $('basemap').value = projector.geo ? 'esri' : 'none';
-      useTileSource($('basemap').value);
+      startBasemap();
       $('title').textContent = file.name.replace(/\.[^.]+$/, '');
       var oneWay = kept.filter(function (l) {
         return !byKey[l.no + '|' + l.to + '|' + l.from];
@@ -1541,73 +1496,32 @@ $('export-att').addEventListener('click', function () {
 $('export-png').addEventListener('click', function () {
   if (net) exportPng(false); else toast('Nejdřív načtěte síť.', true);
 });
-/** Switch tile service: everything cached belongs to the old one. */
-function useTileSource(id, customUrl) {
-  var source = null;
-  TILE_SOURCES.forEach(function (t) { if (t.id === id) source = t; });
-  if (!source) return;
-
-  var custom = source.id === 'custom';
-  $('tileurl').classList.toggle('hidden', !custom);
-  var url = custom ? String(customUrl || '').trim() : source.url;
-
-  // A text input fires "change" when it loses focus too, so clicking one of the
-  // export buttons re-runs this. Asking for the same service again must be a
-  // no-op, or the tiles would be thrown away and re-fetched at that moment -
-  // and the export would see a half-built map.
-  if (currentSource.id === id && currentSource.url === url) return;
-  currentSource = { id: id, url: url };
-
+/** Start, or restart, the background map. */
+function startBasemap() {
   tiles = {};
   tileOrder = [];
   tileMode = null;
   tilesLoaded = 0;
   tilesTainted = false;
+  basemapOn = !!TILE_URL && !!net && net.geo;
 
-  TILE_URL = url;
-  TILE_ATTRIB = source.attrib;
-  TILE_ATTRIB_TEXT = source.text || '';
-  basemapOn = !!TILE_URL;
-
-  $('attrib').innerHTML = TILE_ATTRIB;
+  $('attrib').innerHTML = basemapOn ? TILE_ATTRIB : '';
   $('attrib').classList.toggle('hidden', !basemapOn);
   draw();
   if (!basemapOn) return;
 
-  if (!/^https?:\/\//i.test(TILE_URL) || TILE_URL.indexOf('{z}') < 0) {
-    toast('Adresa dlaždic musí začínat http(s):// a obsahovat {z}, {x} a {y}.', true);
-    return;
-  }
-
   var before = tilesLoaded;
-  toast('Podkladová mapa se načítá…');
   probeTileMode(function () {
     draw();
     setTimeout(function () {
       if (basemapOn && tilesLoaded === before) {
-        toast('Z tohoto zdroje nepřišla žádná dlaždice. Zkuste jiný v nabídce, '
-          + 'nebo zadejte vlastní adresu. Zadávání i exporty fungují dál.', true);
+        toast('Podkladovou mapu se nepodařilo načíst — server dlaždic není ze sítě '
+          + 'dostupný. Zadávání i exporty fungují dál.', true);
       }
     }, 6000);
   });
 }
 
-TILE_SOURCES.forEach(function (source) {
-  var option = document.createElement('option');
-  option.value = source.id;
-  option.textContent = source.label;
-  $('basemap').appendChild(option);
-});
-
-$('basemap').addEventListener('change', function () {
-  useTileSource(this.value, $('tileurl').value);
-});
-$('tileurl').addEventListener('change', function () {
-  // This also fires when the field loses focus, which happens as another
-  // service is picked from the list - and that pick must win.
-  if ($('basemap').value !== 'custom') return;
-  useTileSource('custom', this.value);
-});
 $('zin').addEventListener('click', function () { zoomBy(1.6); });
 $('zout').addEventListener('click', function () { zoomBy(1 / 1.6); });
 $('zfit').addEventListener('click', fitAll);

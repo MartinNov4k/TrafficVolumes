@@ -29,31 +29,26 @@ To je celé. Funguje offline i z flash disku, nic se nikam neodesílá.
 Do políček *Atribut ve Visumu* zadejte, jak se mají oba sloupce jmenovat
 (výchozí `VOL_ALL` a `VOL_HGV`).
 
-V nabídce **podkladová mapa** si vyberete zdroj dlaždic; ve výchozím stavu
-se zapne **Esri**. U sítí v neznámém souřadnicovém systému se nenabízí,
-protože dlaždice by neseděly.
+Síť se podkládá mapou **Esri**, zapne se sama. Vyžaduje připojení
+k internetu; když se dlaždice nenačtou, aplikace to napíše a pracuje se dál nad
+tmavým pozadím. U sítí v neznámém souřadnicovém systému se nezapne, protože
+dlaždice by neseděly.
 
-> **Pozor na OpenStreetMap.** Stránka otevřená z disku (`file://`) neposílá
-> hlavičku `Referer` a JavaScript ji doplnit nesmí. Servery OpenStreetMap
-> takové požadavky podle svých
+> Proč zrovna Esri a ne OpenStreetMap: stránka otevřená z disku (`file://`)
+> neposílá hlavičku `Referer` a JavaScript ji doplnit nesmí. Servery
+> OpenStreetMap takové požadavky podle svých
 > [pravidel](https://operations.osmfoundation.org/policies/tiles/) odmítají a
-> místo mapy pošlou dlaždici s nápisem *Access blocked*. Z aplikace se to
-> obejít nedá — proto je v nabídce i pár jiných zdrojů a položka **vlastní
-> adresa…**, kam vložíte libovolné XYZ URL ve tvaru `.../{z}/{x}/{y}.png`,
-> třeba na server své organizace.
+> místo mapy pošlou dlaždici s nápisem *Access blocked*. Obejít se to z
+> aplikace nedá. (Ve Folium tentýž problém nenastane, protože se mapa obvykle
+> otevírá přes `http://localhost`, kde `Referer` existuje.)
 >
-> (Ve Folium tentýž problém nenastane, protože se mapa obvykle otevírá přes
-> `http://localhost`, kde `Referer` existuje.)
+> Chcete-li jiný zdroj, přepište v `TrafficVolumes.html` konstantu `TILE_URL`
+> na libovolnou XYZ adresu; je hned na začátku skriptu.
 
 Uložený obrázek obsahuje podkladovou mapu jen tehdy, když server dlaždic pošle
 hlavičky CORS. Bez nich prohlížeč odmítne plátno přečíst, obrázek se uloží bez
-podkladu a aplikace to napíše. Aplikace se na to zeptá jednou předem, ne u
-každé dlaždice.
-
-**Zadané hodnoty nikam neodcházejí a nikde nezůstávají.** Drží se jen
-v otevřené stránce, nezapisují se do HTML souboru ani do prohlížeče. Ze
-stránky se dostanou výhradně tlačítky *Uložit .att* a *Uložit obrázek* —
-proto je uložte dřív, než okno zavřete.
+podkladu a aplikace to napíše. Aplikace se na to zeptá jednou předem, ne
+u každé dlaždice.
 
 ## Načtení do Visumu
 
