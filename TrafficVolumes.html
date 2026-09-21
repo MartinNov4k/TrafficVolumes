@@ -136,6 +136,7 @@ kbd { font: 11px/1 ui-monospace, monospace; padding: 2px 4px; border-radius: 3px
     <footer>
       <div class="buttons">
         <button type="button" class="primary" id="save-html">Uložit HTML</button>
+        <button type="button" id="pick-file">Do souboru…</button>
       </div>
       <p class="muted small" id="save-hint"></p>
       <div class="buttons">
@@ -669,6 +670,8 @@ var TILE_ATTRIB_TEXT = 'Esri, © OpenStreetMap';
 
 var net = null;          // {links, byKey, order, bbox, name, crs, geo}
 var embedded = false;    // true once this file carries a network of its own
+var fileHandle = null;   // where "Uložit HTML" writes, instead of downloading
+var writing = false;
 // direction key -> {all: number|undefined, hgv: number|undefined}
 var values = {};
 var dirInputs = {};      // direction key -> {all: input, hgv: input, block: element}
@@ -1535,20 +1538,87 @@ function saveHtml() {
   slot.textContent = JSON.stringify(payload()).replace(/</g, '\\u003c');
 
   var filled = Object.keys(values).filter(hasValue).length;
+  var html = '<!DOCTYPE html>\n' + clone.outerHTML;
+  if (fileHandle) { writeToFile(html); return; }
+
   var base = ascii(net.name).replace(/[^A-Za-z0-9._-]+/g, '_').replace(/\.[^.]*$/, '');
-  download(base + (embedded ? '_vyplneno' : '_zadani') + '.html',
-           '<!DOCTYPE html>\n' + clone.outerHTML, 'text/html;charset=utf-8');
+  download(base + (embedded ? '_vyplneno' : '_zadani') + '.html', html,
+           'text/html;charset=utf-8');
   toast(embedded
     ? 'Uloženo' + (filled ? ' i se zadanými hodnotami.' : '.')
     : 'Uloženo, soubor je připravený k odeslání.');
 }
 
+/**
+ * Point saving at one file on disk.
+ *
+ * A page cannot touch the file it was itself opened from - the browser gives
+ * out no such handle, and rightly so. What it does allow is for the person to
+ * name a file once; picking the very file that is open then makes every later
+ * save overwrite it, with no dialog and no pile of copies in Downloads.
+ * Chrome and Edge only; elsewhere the button stays disabled and saving keeps
+ * downloading a new file.
+ */
+function pickSaveFile() {
+  if (!net) { toast('Nejdřív načtěte síť z Visumu.', true); return; }
+  if (typeof window.showSaveFilePicker !== 'function') {
+    toast('Tento prohlížeč to neumí. Použijte Chrome nebo Edge, jinde se soubor '
+      + 'stahuje.', true);
+    return;
+  }
+  var base = ascii(net.name).replace(/[^A-Za-z0-9._-]+/g, '_').replace(/\.[^.]*$/, '');
+  window.showSaveFilePicker({
+    suggestedName: base + (embedded ? '_vyplneno' : '_zadani') + '.html',
+    types: [{ description: 'Stránka TrafficVolumes', accept: { 'text/html': ['.html'] } }]
+  }).then(function (handle) {
+    fileHandle = handle;
+    updateSaveHint();
+    toast('Ukládá se do ' + handle.name + '.');
+  }).catch(function (error) {
+    if (error && error.name === 'AbortError') return;   // dialog just closed
+    toast('Soubor se nepodařilo vybrat: ' + (error.message || error), true);
+  });
+}
+
+/** Write the page into the chosen file; writes never overlap. */
+function writeToFile(html) {
+  if (writing) { toast('Ukládání ještě běží.', true); return; }
+  writing = true;
+  fileHandle.createWritable()
+    .then(function (stream) {
+      return stream.write(html).then(function () { return stream.close(); });
+    })
+    .then(function () {
+      toast('Uloženo do ' + fileHandle.name + '.');
+    })
+    .catch(function (error) {
+      toast('Zápis do souboru selhal: ' + (error.message || error)
+        + ' — zkuste Do souboru… znovu.', true);
+    })
+    .then(function () { writing = false; });
+}
+
 function updateSaveHint() {
   var button = $('save-html');
+  var picker = $('pick-file');
   var hint = $('save-hint');
+
+  picker.disabled = !net || typeof window.showSaveFilePicker !== 'function';
+  picker.textContent = fileHandle ? 'Jiný soubor…' : 'Do souboru…';
+  picker.title = picker.disabled && net
+    ? 'Ukládání do vybraného souboru umí Chrome a Edge; jinde se soubor stahuje.'
+    : 'Vyberte soubor, do kterého se bude ukládat — klidně tenhle.';
+
   if (!net) {
     button.textContent = 'Uložit HTML';
     hint.textContent = '';
+    return;
+  }
+
+  if (fileHandle) {
+    button.textContent = 'Uložit';
+    hint.textContent = 'Přepíše soubor ' + fileHandle.name
+      + ' — bez dialogu a bez kopií ve stažených souborech.';
     return;
   }
   if (!embedded) {
@@ -1560,8 +1630,8 @@ function updateSaveHint() {
     return;
   }
   button.textContent = 'Uložit HTML';
-  hint.textContent = 'Uloží tento soubor i se zadanými hodnotami. Tímhle se práce '
-    + 'posílá dál; po otevření se pokračuje tam, kde jste skončil.';
+  hint.textContent = 'Uloží tento soubor i se zadanými hodnotami. Tlačítkem '
+    + 'Do souboru… lze místo stahování přepisovat jeden soubor.';
 }
 
 /* ------------------------------------------------------------------ *
@@ -1605,6 +1675,7 @@ window.addEventListener('drop', function (e) {
 $('save').addEventListener('click', saveSelected);
 $('clear').addEventListener('click', clearSelected);
 $('save-html').addEventListener('click', saveHtml);
+$('pick-file').addEventListener('click', pickSaveFile);
 $('export-att').addEventListener('click', function () {
   if (net) exportAtt(); else toast('Nejdřív načtěte síť.', true);
 });

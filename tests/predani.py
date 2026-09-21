@@ -151,6 +151,89 @@ with sync_playwright() as pw:
           abs(os.path.getsize(again) - os.path.getsize(vyplneno)) < 4000,
           (os.path.getsize(vyplneno), os.path.getsize(again)))
     page4.close(); page3.close()
+    print("\n== ukládání do vybraného souboru ==")
+    # Nativní dialog ovládat nejde, takže mu podstrčíme falešný handle; ověřuje
+    # se tím celá cesta kolem něj, ne dialog samotný.
+    page5 = ctx.new_page()
+    page5.on("pageerror", lambda e: errs.append("p5: " + str(e)))
+    page5.goto("file://" + vyplneno); page5.wait_for_timeout(700)
+    check("tlačítko Do souboru… je k dispozici",
+          not page5.evaluate("() => document.getElementById('pick-file').disabled"))
+
+    page5.evaluate("""() => {
+        window.__written = [];
+        window.showSaveFilePicker = function () {
+            return Promise.resolve({
+                name: 'zvoleny.html',
+                createWritable: function () {
+                    var chunks = [];
+                    return Promise.resolve({
+                        write: function (d) { chunks.push(d); return Promise.resolve(); },
+                        close: function () {
+                            window.__written.push(chunks.join(''));
+                            return Promise.resolve();
+                        }
+                    });
+                }
+            });
+        };
+    }""")
+    page5.click("#pick-file"); page5.wait_for_timeout(400)
+    after = page5.evaluate("""() => ({ btn: document.getElementById('save-html').textContent,
+        pick: document.getElementById('pick-file').textContent,
+        hint: document.getElementById('save-hint').textContent })""")
+    check("po volbě se ukládá prostě Uložit", after["btn"].strip() == "Uložit", after)
+    check("nápověda pojmenuje soubor", "zvoleny.html" in after["hint"], after["hint"])
+    check("tlačítko nabízí změnu souboru", "Jiný" in after["pick"], after["pick"])
+
+    # od téhle chvíle se nesmí nic stahovat
+    downloads = []
+    page5.on("download", lambda d: downloads.append(d.suggested_filename))
+    page5.click("#save-html"); page5.wait_for_timeout(800)
+    written = page5.evaluate("() => window.__written")
+    check("zapsalo se do souboru, ne do stažených", len(written) == 1 and downloads == [],
+          {"zapisu": len(written), "stazeno": downloads})
+    check("zápis je celá stránka",
+          written[0].startswith("<!DOCTYPE html>") and 'id="tv-data"' in written[0],
+          written[0][:60] if written else "")
+
+    # a ten zápis musí jít zase otevřít i s hodnotami
+    out = os.path.join(DL, "zapsany.html")
+    open(out, "w", encoding="utf-8").write(written[0])
+    page6 = ctx.new_page()
+    page6.on("pageerror", lambda e: errs.append("p6: " + str(e)))
+    page6.goto("file://" + out); page6.wait_for_timeout(700)
+    check("zapsaný soubor se otevře i s hodnotami",
+          page6.evaluate("() => net.links.length") == 55
+          and page6.text_content("#progress").startswith("2 z"),
+          page6.text_content("#progress"))
+    page6.close()
+
+    # zrušený dialog se odbude tiše
+    page5.evaluate("""() => {
+        window.showSaveFilePicker = function () {
+            var e = new Error('zrušeno'); e.name = 'AbortError';
+            return Promise.reject(e);
+        };
+    }""")
+    page5.click("#pick-file"); page5.wait_for_timeout(500)
+    check("zrušený dialog nic nehlásí",
+          page5.evaluate("() => document.getElementById('toast').classList.contains('hidden')"))
+    page5.close()
+
+    print("\n== prohlížeč bez toho API ==")
+    page7 = ctx.new_page()
+    page7.on("pageerror", lambda e: errs.append("p7: " + str(e)))
+    page7.add_init_script("delete window.showSaveFilePicker;")
+    page7.goto("file://" + vyplneno); page7.wait_for_timeout(700)
+    check("tlačítko je neaktivní",
+          page7.evaluate("() => document.getElementById('pick-file').disabled"))
+    with page7.expect_download(timeout=20000) as d7:
+        page7.click("#save-html")
+    check("a ukládání se vrátí ke stahování", d7.value.suggested_filename.endswith(".html"),
+          d7.value.suggested_filename)
+    page7.close()
+
     b.close()
 
 print("\nkonzole:", errs[:5] if errs else "čistá")
