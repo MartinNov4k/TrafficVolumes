@@ -112,7 +112,7 @@ kbd { font: 11px/1 ui-monospace, monospace; padding: 2px 4px; border-radius: 3px
 
     <label>
       <span>Atribut ve Visumu — všechna vozidla</span>
-      <input type="text" id="attr" value="VOL_ALL" spellcheck="false">
+      <input type="text" id="attr" value="SYNTEZA_AKT" spellcheck="false">
     </label>
     <label>
       <span>Atribut ve Visumu — vozidla nad 3,5 t</span>
@@ -1302,7 +1302,7 @@ function exportAtt() {
   });
 
   download(ascii(net.name).replace(/[^A-Za-z0-9._-]+/g, '_').replace(/\.[^.]*$/, '')
-    + '_intenzity.att', lines.join('\r\n') + '\r\n', 'text/plain;charset=us-ascii');
+    + '_synteza_intenzity.att', lines.join('\r\n') + '\r\n', 'text/plain;charset=us-ascii');
   toast(filled.length + ' směrů zapsáno do .att');
 }
 
@@ -1554,7 +1554,7 @@ function updateSaveHint() {
   if (!embedded) {
     // This copy carries no network yet, so it is the one that prepares the file
     // somebody else will fill in.
-    button.textContent = 'Uložit HTML pro kolegu';
+    button.textContent = 'Uložit HTML pro 2132';
     hint.textContent = 'Vznikne jeden soubor se zapečenou sítí. Kolega ho otevře '
       + 'dvojklikem a rovnou zadává — nic nepřetahuje.';
     return;
